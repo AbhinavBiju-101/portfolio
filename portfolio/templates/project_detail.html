@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_tags %}
+{% block title %}{{ project.name }} — Portfolio{% endblock %}
+{% block content %}
+<section class="project-detail">
+  <a class="back-link" href="{{ url_for('projects') }}">&larr; All projects</a>
+
+  {% set images = project_images(project) %}
+  {% if images %}
+  <div class="gallery">
+    <div class="gallery-main">
+      <img id="gallery-main-img"
+           src="{{ url_for('static', filename='images/' + project.slug + '/' + images[0]) }}"
+           alt="{{ project.name }} screenshot 1">
+    </div>
+    {% if images|length > 1 %}
+    <div class="gallery-thumbs">
+      {% for img in images %}
+      <button type="button" class="gallery-thumb {{ 'is-active' if loop.first }}"
+              data-full="{{ url_for('static', filename='images/' + project.slug + '/' + img) }}">
+        <img src="{{ url_for('static', filename='images/' + project.slug + '/' + img) }}" alt="{{ project.name }} thumbnail {{ loop.index }}">
+      </button>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="gallery-main gallery-main--placeholder" aria-hidden="true"></div>
+  {% endif %}
+
+  <div class="detail-header">
+    <h1>{{ project.name }}</h1>
+    <p class="project-tagline">{{ project.tagline }}</p>
+    {{ render_tags(project) }}
+  </div>
+
+  <div class="detail-actions">
+    {% if project.github or project.download_file %}
+    <a class="btn btn-primary" href="{{ url_for('download', slug=project.slug) }}">Download</a>
+    {% endif %}
+    {% if project.github %}
+    <a class="btn btn-secondary" href="https://github.com/{{ project.github }}" target="_blank" rel="noopener">View on GitHub</a>
+    {% endif %}
+    {% if project.runtime %}
+    <button
+      id="preview-btn"
+      class="btn btn-secondary"
+      type="button"
+      data-slug="{{ project.slug }}"
+      data-runtime="{{ project.runtime }}"
+      data-preview-src="{{ url_for('static', filename='previews/' + project.slug + '/' + project.preview_entry) if project.preview_entry else '' }}"
+      data-main-class="{{ project.preview_main_class or 'Main' }}"
+    >Preview</button>
+    {% endif %}
+  </div>
+
+  <div class="project-description prose">{{ project.description|markdownify|safe }}</div>
+
+  {% for section in project.sections %}
+  <section class="content-section">
+    <h2 class="content-section-title">{{ section.title }}</h2>
+    {% for block in section.blocks %}
+      {% if block.type == "markdown" %}
+      <div class="prose">{{ block.content|markdownify|safe }}</div>
+      {% elif block.type == "image" %}
+      <figure class="content-figure">
+        <img src="{{ url_for('static', filename='images/' + project.slug + '/' + block.src) }}" alt="{{ block.caption or section.title }}">
+        {% if block.caption %}<figcaption>{{ block.caption }}</figcaption>{% endif %}
+      </figure>
+      {% elif block.type == "video" %}
+        {% if block.src.startswith('http') %}
+        <div class="video-wrap">
+          <iframe src="{{ block.src }}" allowfullscreen title="{{ section.title }}"></iframe>
+        </div>
+        {% else %}
+        <video class="content-video" controls
+               src="{{ url_for('static', filename='videos/' + project.slug + '/' + block.src) }}"></video>
+        {% endif %}
+      {% elif block.type == "text" %}
+      <figure class="content-text-block">
+        <pre class="scrollable-text">{{ block.content }}</pre>
+        {% if block.caption %}<figcaption>{{ block.caption }}</figcaption>{% endif %}
+      </figure>
+      {% endif %}
+    {% endfor %}
+  </section>
+  {% endfor %}
+</section>
+
+{% if project.runtime %}
+<div id="preview-modal" class="preview-modal" hidden>
+  <div class="preview-modal-backdrop" data-close-modal></div>
+  <div class="preview-modal-panel" role="dialog" aria-modal="true" aria-label="{{ project.name }} preview">
+    <div class="preview-modal-header">
+      <span class="preview-modal-title">{{ project.name }} — Preview</span>
+      <button id="preview-close" class="preview-modal-close" type="button" aria-label="Close preview">&times;</button>
+    </div>
+    <div id="preview-container" class="preview-container"></div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

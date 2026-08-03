@@ -1,0 +1,11 @@
+
+|| FURYMASTER31 {
+Password = "Abhinav922008"
+JoinDate = "2026-08-03"
+BlocksMined = 21
+EventsActivated = 0
+toggleDelay = true
+Rarest ore discovered = None
+Inventory = [(Stone, 3, 0, 1, 0), (Coal, 7, 0, 1, 0), (Zinc, 4, 0, 0, 0), (Copper, 2, 0, 0, 0), (Iron, 1, 0, 0, 0), (Silver, 1, 0, 0, 0), (Quartz, 0, 0, 0, 0), (Granite, 0, 0, 0, 0), (Opal, 1, 0, 0, 0), (Gold, 0, 0, 0, 0), (Topaz, 0, 0, 0, 0), (Obsidian, 0, 0, 0, 0), (Sapphire, 0, 0, 0, 0), (Ruby, 0, 0, 0, 0), (Tungsten, 0, 0, 0, 0), (Emerald, 0, 0, 0, 0), (Bedrock, 0, 0, 0, 0), (Diamond, 0, 0, 0, 0), (Platinum, 0, 0, 0, 0), (Radium, 0, 0, 0, 0), (Plutonium, 0, 0, 0, 0), (Stalacite, 0, 0, 0, 0), (Crystobalite, 0, 0, 0, 0), (Moissonite, 0, 0, 0, 0), (Manatite, 0, 0, 0, 0), (Ambrosia, 0, 0, 0, 0), (Duratite, 0, 0, 0, 0), (Runestone, 0, 0, 0, 0), (Adamantine, 0, 0, 0, 0), (Darwinium, 0, 0, 0, 0), (Stormium, 0, 0, 0, 0), (Electrix, 0, 0, 0, 0), (Tempest stone, 0, 0, 0, 0), (Illusil, 0, 0, 0, 0), (Aetherium, 0, 0, 0, 0)]
+}
+

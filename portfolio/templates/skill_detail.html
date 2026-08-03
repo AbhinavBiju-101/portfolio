@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ skill }} — Portfolio{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('skills') }}">&larr; All skills</a>
+<section class="page-head">
+  <h1>
+    {% if is_language %}<span class="page-head-icon">{{ language_icon(skill)|safe }}</span>{% endif %}
+    {{ skill }}
+  </h1>
+  <p>Used in {{ projects|length }} project{{ 's' if projects|length != 1 }}.</p>
+</section>
+
+<section class="project-grid">
+  {% for project in projects %}
+  <article class="project-card">
+    {% set images = project_images(project) %}
+    {% if images %}
+      <img class="project-thumb" src="{{ url_for('static', filename='images/' + project.slug + '/' + images[0]) }}" alt="{{ project.name }}">
+    {% else %}
+      <div class="project-thumb project-thumb--placeholder" aria-hidden="true"></div>
+    {% endif %}
+    <div class="project-card-body">
+      <h2><a href="{{ url_for('project_detail', slug=project.slug) }}">{{ project.name }}</a></h2>
+      <p class="project-tagline">{{ project.tagline }}</p>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}

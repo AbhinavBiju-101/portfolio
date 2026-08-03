@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_tags %}
+{% block title %}Projects — Portfolio{% endblock %}
+{% block content %}
+<section class="page-head">
+  <h1>Projects</h1>
+  <p>Each one is set up to download and run locally.</p>
+</section>
+
+<section class="project-grid">
+  {% for project in projects %}
+  <article class="project-card">
+    {% set images = project_images(project) %}
+    {% if images %}
+      <img class="project-thumb" src="{{ url_for('static', filename='images/' + project.slug + '/' + images[0]) }}" alt="{{ project.name }}">
+    {% else %}
+      <div class="project-thumb project-thumb--placeholder" aria-hidden="true"></div>
+    {% endif %}
+    <div class="project-card-body">
+      <h2><a href="{{ url_for('project_detail', slug=project.slug) }}">{{ project.name }}</a></h2>
+      <p class="project-tagline">{{ project.tagline }}</p>
+      {{ render_tags(project) }}
+      <div class="project-actions">
+        <a class="btn btn-primary" href="{{ url_for('download', slug=project.slug) }}">Download</a>
+        <a class="btn btn-secondary" href="{{ url_for('project_detail', slug=project.slug) }}">Details</a>
+      </div>
+    </div>
+  </article>
+  {% else %}
+  <p>No projects yet — add some to the <code>PROJECTS</code> list in <code>app.py</code>.</p>
+  {% endfor %}
+</section>
+{% endblock %}

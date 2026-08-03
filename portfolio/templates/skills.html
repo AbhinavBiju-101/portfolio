@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Skills — Portfolio{% endblock %}
+{% block content %}
+<section class="page-head">
+  <h1>Skills</h1>
+  <p>Grouped from the projects below — click one to see everything that uses it.</p>
+</section>
+
+<section class="skills-group">
+  <h2 class="skills-group-title">Languages</h2>
+  <div class="skills-list">
+    {% for lang, projects in languages.items() %}
+    <a class="skill-row" href="{{ url_for('skill_detail', name=lang) }}">
+      <span class="skill-row-name"><span class="skill-row-icon">{{ language_icon(lang)|safe }}</span>{{ lang }}</span>
+      <span class="skill-row-count">{{ projects|length }} project{{ 's' if projects|length != 1 }}</span>
+    </a>
+    {% else %}
+    <p>No languages yet — add a <code>"languages"</code> list to a project in <code>app.py</code>.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="skills-group">
+  <h2 class="skills-group-title">Skills</h2>
+  <div class="skills-list">
+    {% for skill, projects in skills.items() %}
+    <a class="skill-row" href="{{ url_for('skill_detail', name=skill) }}">
+      <span class="skill-row-name">{{ skill }}</span>
+      <span class="skill-row-count">{{ projects|length }} project{{ 's' if projects|length != 1 }}</span>
+    </a>
+    {% else %}
+    <p>No skills yet — add a <code>"skills"</code> list to a project in <code>app.py</code>.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

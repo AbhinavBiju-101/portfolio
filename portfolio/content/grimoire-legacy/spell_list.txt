@@ -1,0 +1,198 @@
+GRIMOIRE LEGACY SPELLS:
+------------------------------------------------------------------------------------------
+SPELL SET 1
+
+Attack              -                   (do nothing)                   1 D, 1 CD
+
+Attack              Fireball            100 dmg                        1 D, 1 CD
+
+Defence             Shield              50 def per turn                3 D, 4 CD
+
+Attack              Wind Bullet         40x3 barrage damage            1 D, 1 CD
+
+Healing             Prayer              120 hp                         1 D, 1 CD
+
+------------------------------------------------------------------------------------------
+SPELL SET 2
+
+Debuff              Taunt               Reduce opponent Atk            4 D, 3 CD
+                                        by 20%                                  
+
+Attack              Flame Cutter        175 dmg                        1 D, 2 CD
+
+Defence             Barrier             200 def                        2 D, 3 CD
+
+Buff                Focus               Increase atk by 20%            4 D, 3 CD
+
+Attack              Golem               80 dmg/turn                    3 D, 4 CD
+
+------------------------------------------------------------------------------------------
+SPELL SET 3
+
+Attack              Pressure beam       220 dmg                        1 D, 3 CD
+
+Healing             Blessing            80 hp/turn                     4 D, 4 CD
+
+Attack              Emblaze             100 dmg/turn                   5 D, 4 CD
+
+Defence             Hexasphere          175 def                        2 D, 1 CD
+
+Attack              Spikes              160 dmg/turn                   2 D, 2 CD
+
+------------------------------------------------------------------------------------------
+SPELL SET 4
+
+Attack              Light Shots         30x4 dmg/turn                  2 D, 1 CD
+
+Attack              Skeleton Horde      50x3 dmg/turn                  2 D, 3 CD
+
+Defence             Neuter              300 def                        1 D, 2 CD
+
+Attack              Sonic Crescent      200 damage                     1 D, 1 CD
+
+Attack              Bladestorm          25x8 dmg/turn                  4 D, 4 CD
+
+------------------------------------------------------------------------------------------
+SPELL SET 5
+
+Buff                Rage                Increase Atk by 15%,           3 D, 3 CD
+                                        gain 25% def pierce                     
+
+Buff                Blood Sucker        Heal 40% of your dmg           1 D, 0 CD
+                                        (piercing does not                      
+                                        count)                                  
+
+Attack              Electrify           100 dmg/turn                   3 D, 1 CD
+
+Attack              Smite               300 dmg                        1 D, 3 CD
+
+Healing             Divine Call         200 hp                         1 D, 1 CD
+
+------------------------------------------------------------------------------------------
+SPELL SET 6
+
+Debuff              Curse               Reduce opponent                3 D, 3 CD
+                                        healing by 40%                          
+
+Buff                Health Siphon       Heal 50% of what               1 D, 0 CD
+                                        opponent heals                          
+
+Attack              Sand Tempest        200 dmg/turn                   2 D, 2 CD
+
+Attack              Absolute Zero       120 dmg/turn                   5 D, 3 CD
+
+Defence             Iron Talisman       500 def                        3 D, 3 CD
+
+------------------------------------------------------------------------------------------
+SPELL SET 7
+
+Attack              Undead Warrior Spawn60 dmg/turn, 100               4 D, 4 CD
+                                        def/turn                                
+
+Attack              Poison Bomb         150 dmg(1D) + 80               3 D, 2 CD
+                                        dmg/turn(3D)                            
+
+Healing             Holy Decree         180 hp(1D) + 30                5 D, 2 CD
+                                        hp/turn(5D)                             
+
+Buff                Critical            Increase Atk by 50%            1 D, 2 CD
+                                        for next attack (can                    
+                                        stack)                                  
+
+Healing             Vitality            100 hp/turn                    1 D, 0 CD
+
+------------------------------------------------------------------------------------------
+SPELL SET 8
+
+Attack              Blood Hammer        350 dmg, but -100 hp           1 D, 3 CD
+
+Debuff              Thorns              Opponent gets hit              1 D, 0 CD
+                                        with 50% of what                        
+                                        they deal                               
+
+Attack              Skeleton Battalion  30x5 dmg/turn + 25x5           3 D, 3 CD
+                                        def/turn                                
+
+Attack              Magic Minigun       10x16 dmg/turn                 5 D, 1 CD
+
+Healing             Revive              +1000 hp                       1 D, 8 CD
+
+------------------------------------------------------------------------------------------
+SPELL SET 9
+
+Buff                Inductive Stone     Get a barrier 80% as           3 D, 3 CD
+                                        effective as                            
+                                        opponent's                              
+
+Buff                Capacitor           Store your attacks             1 D, 4 CD
+                                        of next 4 turns, and                    
+                                        release at once with                    
+                                        30% more power                          
+
+Defence             Slime monster       500 def(4D) + 100              5 D, 4 CD
+                                        def/turn(1D,4D) +                       
+                                        reflect 50% taken                       
+                                        damage on def                           
+
+Defence             Parry               25% chance/turn for            1 D, 0 CD
+                                        1000 def(1D)                            
+
+Healing             Tenacity            Avoid death, and set           3 D, 0 CD
+                                        hp to 1 + 300                           
+                                        hp/turn(2D)                             
+
+------------------------------------------------------------------------------------------
+SPELL SET 10
+
+Buff                Sanguine Aura       Increase Atk by +30%           1 D, 0 CD
+                                        under 500 Hp, and                       
+                                        20% chance to dodge                     
+                                        below 200 hp                            
+
+Attack              Soul Convergance    280 dmg, 125                   3 D, 3 CD
+                                        dmg/turn(3D), -50                       
+                                        hp/turn(3D)                             
+
+Debuff              Life Fragmentation  Set yours and                  4 D, 3 CD
+                                        opponent's hp to                        
+                                        their average,                          
+                                        +80hp/turn(4D)                          
+
+Attack              Meteor Strike       520 dmg                        1 D, 5 CD
+
+Debuff              Paralyze            Opponent Skips their           1 D, 5 CD
+                                        next 2 turns (Even                      
+                                        passives get                            
+                                        ignored)                                
+
+------------------------------------------------------------------------------------------
+SPELL SET 11
+
+Healing             Ancient Scripture   300hp, 150                     2 D, 2 CD
+                                        def(1D)/turn(2D)                        
+
+Defence             Hectasphere         100 def(1D)/turn               4 D, 1 CD
+
+Debuff              Devour              Break opponent's               2 D, 4 CD
+                                        shields                                 
+
+Attack              Godly Wrath         300 dmg/turn                   3 D, 4 CD
+
+Buff                Lightspeed          Reduce cooldown of             1 D, 0 CD
+                                        selected spell by 1.                    
+                                        (CD cannot be 0)                        
+
+------------------------------------------------------------------------------------------
+SPELL SET 12
+
+Attack              Plasma Cannon       250 dmg, 50 dmg/turn           5 D, 2 CD
+
+Attack              Last Struggle       750 dmg, -300 hp,              1 D, 5 CD
+                                        +50% def pierce                         
+
+Buff                Bloodlust Bullet    Reduce Atk by 15%,             3 D, 4 CD
+                                        +40% def pierce,                        
+                                        opponent heals 30%                      
+                                        less                                    
+
+------------------------------------------------------------------------------------------

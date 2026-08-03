@@ -1,0 +1,29 @@
+{% macro render_tags(project) %}
+  {% set languages = project.languages or [] %}
+  {% set skills = project.skills or [] %}
+  {% if languages or skills %}
+  <div class="tag-row">
+    {% if languages %}
+    <ul class="skill-tags skill-tags--languages">
+      {% for lang in languages %}
+      <li>
+        <a class="skill-tag skill-tag--language" href="{{ url_for('skill_detail', name=lang) }}">
+          <span class="skill-tag-icon">{{ language_icon(lang)|safe }}</span>{{ lang }}
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if languages and skills %}
+    <span class="tag-separator" aria-hidden="true"></span>
+    {% endif %}
+    {% if skills %}
+    <ul class="skill-tags">
+      {% for skill in skills %}
+      <li><a class="skill-tag" href="{{ url_for('skill_detail', name=skill) }}">{{ skill }}</a></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+{% endmacro %}

@@ -1052,5 +1052,11 @@ if __name__ == "__main__":
     # subprocesses (their stdin pipe closes -> Scanner throws
     # NoSuchElementException). If you want template auto-reload back while
     # developing, re-enable it, but expect any open preview to die on save.
-    app.run(debug=True, use_reloader=False, threaded=True)
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=False,
+        use_reloader=False,
+        threaded=True,
+    )
     

@@ -4,13 +4,20 @@
 <section class="page-head">
   <h1>Skills</h1>
   <p>Grouped from the projects below — click one to see everything that uses it.</p>
+  <div class="search-bar">
+    <input type="search" id="skills-search" class="search-input"
+           placeholder="Search skills & languages…" aria-label="Search skills and languages" autocomplete="off">
+    <button type="button" id="skills-search-clear" class="search-clear" aria-label="Clear search" hidden>&times;</button>
+  </div>
 </section>
 
-<section class="skills-group">
+<p id="skills-search-empty" class="search-empty" hidden>No skills or languages match &ldquo;<span id="skills-search-empty-term"></span>&rdquo;.</p>
+
+<section class="skills-group" data-search-group>
   <h2 class="skills-group-title">Languages</h2>
   <div class="skills-list">
     {% for lang, projects in languages.items() %}
-    <a class="skill-row" href="{{ url_for('skill_detail', name=lang) }}">
+    <a class="skill-row" data-search-name="{{ lang|lower }}" href="{{ url_for('skill_detail', name=lang) }}">
       <span class="skill-row-name"><span class="skill-row-icon">{{ language_icon(lang)|safe }}</span>{{ lang }}</span>
       <span class="skill-row-count">{{ projects|length }} project{{ 's' if projects|length != 1 }}</span>
     </a>
@@ -20,11 +27,11 @@
   </div>
 </section>
 
-<section class="skills-group">
+<section class="skills-group" data-search-group>
   <h2 class="skills-group-title">Skills</h2>
   <div class="skills-list">
     {% for skill, projects in skills.items() %}
-    <a class="skill-row" href="{{ url_for('skill_detail', name=skill) }}">
+    <a class="skill-row" data-search-name="{{ skill|lower }}" href="{{ url_for('skill_detail', name=skill) }}">
       <span class="skill-row-name">{{ skill }}</span>
       <span class="skill-row-count">{{ projects|length }} project{{ 's' if projects|length != 1 }}</span>
     </a>

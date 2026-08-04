@@ -535,3 +535,170 @@ document.addEventListener("DOMContentLoaded", () => {
     touchStartX = null;
   }, { passive: true });
 });
+
+// --- Generic zoomable images (certifications & achievements) -----------
+document.addEventListener("DOMContentLoaded", () => {
+  const triggers = Array.from(document.querySelectorAll(".zoomable-trigger"));
+  const lightbox = document.getElementById("lightbox");
+  if (!triggers.length || !lightbox || document.getElementById("gallery-main-img")) return;
+
+  const items = triggers.map((el) => ({ src: el.dataset.full, alt: el.querySelector("img").alt }));
+  const img = document.getElementById("lightbox-img");
+  const countEl = document.getElementById("lightbox-count");
+  const closeBtn = document.getElementById("lightbox-close");
+  const prevBtn = document.getElementById("lightbox-prev");
+  const nextBtn = document.getElementById("lightbox-next");
+  let activeIndex = 0;
+
+  function show(index) {
+    activeIndex = (index + items.length) % items.length;
+    img.src = items[activeIndex].src;
+    img.alt = items[activeIndex].alt;
+    if (countEl) countEl.textContent = `${activeIndex + 1} / ${items.length}`;
+  }
+  function open(index) { show(index); lightbox.hidden = false; document.body.style.overflow = "hidden"; }
+  function close() { lightbox.hidden = true; document.body.style.overflow = ""; }
+
+  triggers.forEach((el, i) => el.addEventListener("click", () => open(i)));
+  closeBtn.addEventListener("click", close);
+  lightbox.querySelectorAll("[data-close-lightbox]").forEach((el) => el.addEventListener("click", close));
+  if (prevBtn) prevBtn.addEventListener("click", () => show(activeIndex - 1));
+  if (nextBtn) nextBtn.addEventListener("click", () => show(activeIndex + 1));
+
+  document.addEventListener("keydown", (e) => {
+    if (lightbox.hidden) return;
+    if (e.key === "Escape") close();
+    else if (e.key === "ArrowLeft") show(activeIndex - 1);
+    else if (e.key === "ArrowRight") show(activeIndex + 1);
+  });
+
+  let touchStartX = null;
+  lightbox.addEventListener("touchstart", (e) => { touchStartX = e.changedTouches[0].clientX; }, { passive: true });
+  lightbox.addEventListener("touchend", (e) => {
+    if (touchStartX === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 40) show(activeIndex + (dx < 0 ? 1 : -1));
+    touchStartX = null;
+  }, { passive: true });
+});
+
+// --- Generic search-filter for lists of cards/rows -----------------------
+// Works for both the Projects grid and the Skills lists: any element with
+// data-search-name gets shown/hidden based on the query, entire groups
+// (data-search-group) hide themselves if nothing inside matches, and an
+// empty-state message is toggled when there are zero matches overall.
+function initSearchFilter({ inputId, clearId, emptyId, emptyTermId }) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+
+  const clearBtn = document.getElementById(clearId);
+  const emptyEl = document.getElementById(emptyId);
+  const emptyTermEl = emptyTermId ? document.getElementById(emptyTermId) : null;
+  const items = Array.from(document.querySelectorAll("[data-search-name]"));
+  const groups = Array.from(document.querySelectorAll("[data-search-group]"));
+
+  function applyFilter() {
+    const query = input.value.trim().toLowerCase();
+    if (clearBtn) clearBtn.hidden = query.length === 0;
+
+    let totalVisible = 0;
+    items.forEach((el) => {
+      const match = !query || el.dataset.searchName.includes(query);
+      el.hidden = !match;
+      if (match) totalVisible += 1;
+    });
+
+    // Hide a whole group (e.g. the "Languages" section) if every item in
+    // it got filtered out, so we don't leave a dangling empty heading.
+    groups.forEach((group) => {
+      const groupItems = group.querySelectorAll("[data-search-name]");
+      if (!groupItems.length) return; // group has no searchable items (e.g. the "no X yet" fallback)
+      const anyVisible = Array.from(groupItems).some((el) => !el.hidden);
+      group.hidden = !anyVisible;
+    });
+
+    if (emptyEl) {
+      const show = query.length > 0 && totalVisible === 0;
+      emptyEl.hidden = !show;
+      if (show && emptyTermEl) emptyTermEl.textContent = input.value.trim();
+    }
+  }
+
+  input.addEventListener("input", applyFilter);
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      input.value = "";
+      applyFilter();
+      input.focus();
+    });
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  initSearchFilter({
+    inputId: "skills-search",
+    clearId: "skills-search-clear",
+    emptyId: "skills-search-empty",
+    emptyTermId: "skills-search-empty-term",
+  });
+  initSearchFilter({
+    inputId: "projects-search",
+    clearId: "projects-search-clear",
+    emptyId: "projects-search-empty",
+    emptyTermId: "projects-search-empty-term",
+  });
+});
+
+// --- Scrollable text blocks: font-size zoom controls --------------------
+// A+/A- buttons next to each in-game text dump. Works the same on desktop
+// and mobile — there's no separate mobile-only path. The chosen size is
+// shared across every scrollable-text block on the page and remembered
+// between visits (handy since the default is intentionally small on mobile).
+document.addEventListener("DOMContentLoaded", () => {
+  const blocks = Array.from(document.querySelectorAll(".scrollable-text"));
+  const zoomBtns = Array.from(document.querySelectorAll(".text-zoom-btn"));
+  if (!blocks.length || !zoomBtns.length) return;
+
+  const STORAGE_KEY = "scrollableTextFontRem";
+  const MIN_REM = 0.55;
+  const MAX_REM = 1.1;
+  const STEP_REM = 0.08;
+  const BASE_REM = 0.82; // matches the desktop default in style.css, used for the % readout
+
+  const readouts = Array.from(document.querySelectorAll(".text-zoom-readout"));
+
+  function currentRemSize(el) {
+    const px = parseFloat(window.getComputedStyle(el).fontSize);
+    const rootPx = parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+    return px / rootPx;
+  }
+
+  function updateReadouts(rem) {
+    const pct = Math.round((rem / BASE_REM) * 100);
+    readouts.forEach((el) => { el.textContent = pct + "%"; });
+  }
+
+  function applySize(rem) {
+    blocks.forEach((el) => { el.style.fontSize = rem + "rem"; });
+    updateReadouts(rem);
+  }
+
+  const stored = parseFloat(localStorage.getItem(STORAGE_KEY));
+  if (!Number.isNaN(stored)) {
+    applySize(stored);
+  } else {
+    updateReadouts(currentRemSize(blocks[0]));
+  }
+
+  zoomBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      // getComputedStyle reflects the current inline size if one was set,
+      // otherwise whatever the CSS (incl. mobile media query) resolves to.
+      const base = currentRemSize(blocks[0]);
+      const delta = btn.dataset.zoom === "in" ? STEP_REM : -STEP_REM;
+      const next = Math.min(MAX_REM, Math.max(MIN_REM, +(base + delta).toFixed(2)));
+      applySize(next);
+      localStorage.setItem(STORAGE_KEY, next);
+    });
+  });
+});

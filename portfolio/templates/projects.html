@@ -9,11 +9,19 @@
     <a href="{{ url_for('projects') }}" class="{{ 'is-active' if not pinned_only }}">All</a>
     <a href="{{ url_for('projects', filter='pinned') }}" class="{{ 'is-active' if pinned_only }}">Pinned only</a>
   </div>
+  <div class="search-bar">
+    <input type="search" id="projects-search" class="search-input"
+           placeholder="Search projects…" aria-label="Search projects" autocomplete="off">
+    <button type="button" id="projects-search-clear" class="search-clear" aria-label="Clear search" hidden>&times;</button>
+  </div>
 </section>
 
-<section class="project-grid">
+<p id="projects-search-empty" class="search-empty" hidden>No projects match &ldquo;<span id="projects-search-empty-term"></span>&rdquo;.</p>
+
+<section class="project-grid" data-search-group>
   {% for project in projects %}
-  <article class="project-card">
+  {% set search_tags = (project.languages or []) + (project.skills or []) %}
+  <article class="project-card" data-search-name="{{ (project.name ~ ' ' ~ project.tagline ~ ' ' ~ search_tags|join(' '))|lower }}">
     {% set images = project_images(project) %}
     {% if images %}
       <img class="project-thumb" src="{{ url_for('static', filename='images/' + project.slug + '/' + images[0]) }}" alt="{{ project.name }}">

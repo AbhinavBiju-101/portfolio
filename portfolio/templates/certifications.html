@@ -10,11 +10,10 @@
   {% for cert in certifications %}
   <article class="cert-card">
     {% if cert.image %}
-      {% if cert.image.startswith('http://') or cert.image.startswith('https://') %}
-        <img class="cert-badge" src="{{ cert.image }}" alt="{{ cert.name }}" loading="lazy">
-      {% else %}
-        <img class="cert-badge" src="{{ url_for('static', filename='images/certifications/' + cert.image) }}" alt="{{ cert.name }}" loading="lazy">
-      {% endif %}
+      {% set cert_img_src = cert.image if (cert.image.startswith('http://') or cert.image.startswith('https://')) else url_for('static', filename='images/certifications/' + cert.image) %}
+      <button type="button" class="zoomable-trigger" data-full="{{ cert_img_src }}">
+        <img class="cert-badge" src="{{ cert_img_src }}" alt="{{ cert.name }}" loading="lazy">
+      </button>
     {% else %}
       <div class="cert-badge cert-badge--placeholder" aria-hidden="true">{{ cert.name[0] }}</div>
     {% endif %}
@@ -61,6 +60,11 @@
       <span class="timeline-date">{{ item.date }}</span>
       <div class="timeline-body">
         <h3>{{ item.title }}{% if item.category %} <span class="achievement-category-tag">{{ item.category }}</span>{% endif %}</h3>
+        {% if item.image %}
+        <button type="button" class="zoomable-trigger timeline-image-trigger" data-full="{{ url_for('static', filename='images/certifications/' + item.image) }}">
+          <img src="{{ url_for('static', filename='images/certifications/' + item.image) }}" alt="{{ item.title }}" loading="lazy">
+        </button>
+        {% endif %}
         {{ item.description|markdownify|safe }}
       </div>
     </li>
@@ -69,4 +73,15 @@
     {% endfor %}
   </ol>
 </section>
+
+<div id="lightbox" class="lightbox" hidden>
+  <div class="lightbox-backdrop" data-close-lightbox></div>
+  <button type="button" id="lightbox-close" class="lightbox-close" aria-label="Close">&times;</button>
+  <button type="button" id="lightbox-prev" class="lightbox-arrow lightbox-prev" aria-label="Previous">&#8249;</button>
+  <button type="button" id="lightbox-next" class="lightbox-arrow lightbox-next" aria-label="Next">&#8250;</button>
+  <figure class="lightbox-figure">
+    <img id="lightbox-img" src="" alt="">
+    <figcaption id="lightbox-count" class="lightbox-count"></figcaption>
+  </figure>
+</div>
 {% endblock %}

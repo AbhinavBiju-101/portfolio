@@ -792,14 +792,14 @@ def get_github_stars():
 # certifications (delete these two once you do).
 CERTIFICATIONS = [
     {
-        "name": "Example Certification — replace me",
-        "issuer": "Issuing Organization",
-        "date": "2026",
-        "credential_url": None,
-        "credential_id": None,
-        "description": "Swap this out for a real certification — see the CERTIFICATIONS list in app.py.",
-        "skills": [],
-        "image": None,
+        "name": "Microsoft Office Specialist: PowerPoint 2016",
+        "issuer": "Microsoft",
+        "date": "Aug 2021",
+        "credential_url": "https://www.credly.com/badges/a761f4a5-31ba-44c0-a363-4e26cab83047",
+        "credential_id": "ykUm-DwBR",
+        "description": "Certified for demonstrating proficiency in Microsoft PowerPoint 2016.",
+        "skills": ["PowerPoint 2016"],
+        "image": "ms-office-specialist-ppt-2016.png",
     },
 ]
 
@@ -821,22 +821,44 @@ CERTIFICATIONS = [
 #                    as a PROJECTS "description"
 ACHIEVEMENTS = [
     {
-        "title": "Example Achievement — replace me",
+        "title": "NASA International Space Apps Challenge — Pala",
         "category": "Hackathon",
-        "date": "2026",
+        "date": "Oct 2024",
+        "image": "nasa-space-apps-2024.png",
         "description": (
-            "Swap this out for a real achievement — see the ACHIEVEMENTS "
-            "list in app.py. Supports multiple paragraphs, same as a "
-            "project's description field.\n\n"
-            "Second paragraph, for example covering what specifically was "
-            "achieved and any measurable outcome."
+            "Actively participated in the 2024 NASA Space Apps Challenge Pala "
+            "and Project Expo, organised by ISRO at VISAT Engineering College, "
+            "Ernakulam.\n\n"
+            "Came on site to plan and build a project with a five-person team, "
+            "working overnight over multiple days. Delivered a prototype "
+            "application for evaluation, including a video demonstration, "
+            "presentation, and live speech."
         ),
     },
     {
-        "title": "Another Example — replace or delete me",
-        "category": "Internship",
-        "date": "2026",
-        "description": "A second placeholder just to show the category filter with more than one category in play — delete both once you've added your real entries.",
+        "title": "Intel AI For Youth Participant",
+        "category": "Bootcamp",
+        "date": "May 2022",
+        "image": "intel-ai-for-youth-2022.png",
+        "description": (
+            "Selected for the 12-day Intel AI Readiness Bootcamp, run in "
+            "collaboration with CBSE.\n\n"
+            "Completed intensive, hands-on training in foundational AI "
+            "concepts and tools, and submitted a CV-powered text reader and "
+            "summarizer project for evaluation, earning a Certificate of "
+            "Completion."
+        ),
+    },
+    {
+        "title": "1st Runner Up — ICT Junior India Championship",
+        "category": "Competition",
+        "date": "Aug 2021",
+        "image": "ict-junior-india-championship-2021.png",
+        "description": (
+            "Secured 1st Runner Up at the national level in the ICT Junior "
+            "India Championship (PowerPoint 2016 category), part of the "
+            "Sankalp 2021 World Championships."
+        ),
     },
 ]
 
@@ -1294,11 +1316,19 @@ def _ensure_chatroom_network():
         # pre-create it so that's a no-op instead of a startup stack trace.
         os.makedirs(os.path.expanduser("~/.local/share/applications"), exist_ok=True)
 
+        # Also tell the jar to skip shortcut creation entirely — this is a
+        # headless container with no desktop environment (no `gio`, often
+        # no GUI at all), so there's nothing useful for a .desktop file to
+        # do here. Real end users running the downloaded jar themselves
+        # won't have this env var set, so they still get their shortcut.
+        preview_env = dict(os.environ, CHATROOM_SKIP_SHORTCUT="1")
+
         proc = subprocess.Popen(
             ["java", "-jar", jar_path],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, bufsize=1,
             cwd=os.path.dirname(jar_path),
+            env=preview_env,
         )
 
         # Read line-by-line ourselves until the startup message appears,

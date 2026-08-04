@@ -1,0 +1,271 @@
+MINING SIMULATOR — FULL ITEM INDEX:
+------------------------------------------------------------------------------------------
+Stone
+Collection: Earth
+Normal [1 in 2.0]
+Ionized [1 in 20]
+Spectral [1 in 200]
+Transdimensional [1 in 2000]
+
+Coal
+Collection: Earth
+Normal [1 in 5.0]
+Ionized [1 in 50]
+Spectral [1 in 500]
+Transdimensional [1 in 5000]
+
+Zinc
+Collection: Earth
+Normal [1 in 6.0]
+Ionized [1 in 60]
+Spectral [1 in 600]
+Transdimensional [1 in 6000]
+
+Copper
+Collection: Earth
+Normal [1 in 10.0]
+Ionized [1 in 100]
+Spectral [1 in 1000]
+Transdimensional [1 in 10000]
+
+Iron
+Collection: Earth
+Normal [1 in 20.0]
+Ionized [1 in 200]
+Spectral [1 in 2000]
+Transdimensional [1 in 20000]
+
+Silver
+Collection: Earth
+Normal [1 in 21.0]
+Ionized [1 in 210]
+Spectral [1 in 2100]
+Transdimensional [1 in 21000]
+
+Quartz
+Collection: Earth
+Normal [1 in 24.0]
+Ionized [1 in 240]
+Spectral [1 in 2400]
+Transdimensional [1 in 24000]
+
+Granite
+Collection: Earth
+Normal [1 in 40.0]
+Ionized [1 in 400]
+Spectral [1 in 4000]
+Transdimensional [1 in 40000]
+
+Opal
+Collection: Earth
+Normal [1 in 63.0]
+Ionized [1 in 630]
+Spectral [1 in 6300]
+Transdimensional [1 in 63000]
+
+Gold
+Collection: Earth
+Normal [1 in 96.0]
+Ionized [1 in 960]
+Spectral [1 in 9600]
+Transdimensional [1 in 96000]
+Spawn Message: A faint yellow glow flickers from within the rock.
+
+Topaz
+Collection: Earth
+Normal [1 in 112.0]
+Ionized [1 in 1120]
+Spectral [1 in 11200]
+Transdimensional [1 in 112000]
+Spawn Message: A warm, golden light emanates from the rock as you chip away.
+You see flashes of yellow within the stone.
+
+Obsidian
+Collection: Earth
+Normal [1 in 120.0]
+Ionized [1 in 1200]
+Spectral [1 in 12000]
+Transdimensional [1 in 120000]
+Spawn Message: The stone gleams with a dark, glassy sheen.
+Its surface is smooth yet sharp to the touch.
+
+Sapphire
+Collection: Earth
+Normal [1 in 140.0]
+Ionized [1 in 1400]
+Spectral [1 in 14000]
+Transdimensional [1 in 140000]
+Spawn Message: A deep blue light reflects off the stone's surface.
+It feels cool to the touch, as though it holds secrets.
+
+Ruby
+Collection: Earth
+Normal [1 in 144.0]
+Ionized [1 in 1440]
+Spectral [1 in 14400]
+Transdimensional [1 in 144000]
+Spawn Message: A brilliant red hue shines brightly within the rock.
+You feel a warm pulse emanating from deep inside.
+
+Tungsten
+Collection: Earth
+Normal [1 in 180.0]
+Ionized [1 in 1800]
+Spectral [1 in 18000]
+Transdimensional [1 in 180000]
+Spawn Message: The stone seems almost impossibly dense and hard.
+It feels like it could withstand anything.
+
+Emerald
+Collection: Earth
+Normal [1 in 210.0]
+Ionized [1 in 2100]
+Spectral [1 in 21000]
+Transdimensional [1 in 210000]
+Spawn Message: A vibrant green glow pulses softly from within the stone.
+It feels alive with energy as you hold it.
+
+Bedrock
+Collection: Earth
+Normal [1 in 288.0]
+Ionized [1 in 2880]
+Spectral [1 in 28800]
+Transdimensional [1 in 288000]
+Spawn Message: The rock beneath you feels impossibly solid, unyielding.
+You sense a deep, ancient power flowing within it.
+
+Diamond
+Collection: Earth
+Normal [1 in 315.0]
+Ionized [1 in 3150]
+Spectral [1 in 31500]
+Transdimensional [1 in 315000]
+Spawn Message: A faint sparkle catches your eye from deep inside the rock.
+The stone seems to shine even in the dark.
+
+Platinum
+Collection: Earth
+Normal [1 in 420.0]
+Ionized [1 in 4200]
+Spectral [1 in 42000]
+Transdimensional [1 in 420000]
+Spawn Message: A silvery sheen shines brightly as you uncover the mineral.
+It seems to reflect the light in a way no other metal does.
+
+Radium
+Collection: Earth
+Normal [1 in 504.0]
+Ionized [1 in 5040]
+Spectral [1 in 50400]
+Transdimensional [1 in 504000]
+Spawn Message: A faint, eerie glow emanates from the stone's core.
+The air around you feels charged with an unnatural force.
+
+Plutonium
+Collection: Earth
+Normal [1 in 672.0]
+Ionized [1 in 6720]
+Spectral [1 in 67200]
+Transdimensional [1 in 672000]
+Spawn Message: A strange, sickly green light emanates from deep within the rock.
+You feel a sudden chill run through you as you touch it.
+It radiates with a terrifying energy that feels almost alive.
+
+Stalacite
+Collection: Imaginary
+Normal [1 in 60.0]
+Ionized [1 in 600]
+Spectral [1 in 6000]
+Transdimensional [1 in 60000]
+Spawn Message: It seems sharp.
+
+Crystobalite
+Collection: Imaginary
+Normal [1 in 70.0]
+Ionized [1 in 700]
+Spectral [1 in 7000]
+Transdimensional [1 in 70000]
+
+Moissonite
+Collection: Imaginary
+Normal [1 in 90.0]
+Ionized [1 in 900]
+Spectral [1 in 9000]
+Transdimensional [1 in 90000]
+
+Manatite
+Collection: Imaginary
+Normal [1 in 126.0]
+Ionized [1 in 1260]
+Spectral [1 in 12600]
+Transdimensional [1 in 126000]
+
+Ambrosia
+Collection: Imaginary
+Normal [1 in 160.0]
+Ionized [1 in 1600]
+Spectral [1 in 16000]
+Transdimensional [1 in 160000]
+
+Duratite
+Collection: Imaginary
+Normal [1 in 168.0]
+Ionized [1 in 1680]
+Spectral [1 in 16800]
+Transdimensional [1 in 168000]
+
+Runestone
+Collection: Imaginary
+Normal [1 in 224.0]
+Ionized [1 in 2240]
+Spectral [1 in 22400]
+Transdimensional [1 in 224000]
+
+Adamantine
+Collection: Imaginary
+Normal [1 in 336.0]
+Ionized [1 in 3360]
+Spectral [1 in 33600]
+Transdimensional [1 in 336000]
+
+Darwinium
+Collection: Imaginary
+Normal [1 in 480.0]
+Ionized [1 in 4800]
+Spectral [1 in 48000]
+Transdimensional [1 in 480000]
+
+Stormium
+Collection: Air
+Normal [1 in 48.0]
+Ionized [1 in 480]
+Spectral [1 in 4800]
+Transdimensional [1 in 48000]
+
+Electrix
+Collection: Air
+Normal [1 in 84.0]
+Ionized [1 in 840]
+Spectral [1 in 8400]
+Transdimensional [1 in 84000]
+
+Tempest stone
+Collection: Air
+Normal [1 in 224.0]
+Ionized [1 in 2240]
+Spectral [1 in 22400]
+Transdimensional [1 in 224000]
+
+Illusil
+Collection: Air
+Normal [1 in 360.0]
+Ionized [1 in 3600]
+Spectral [1 in 36000]
+Transdimensional [1 in 360000]
+
+Aetherium
+Collection: Air
+Normal [1 in 630.0]
+Ionized [1 in 6300]
+Spectral [1 in 63000]
+Transdimensional [1 in 630000]

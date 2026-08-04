@@ -118,6 +118,117 @@ def compile_sources(javac_cmd, src_root, out_dir):
     return java_files
 
 
+# Matches `new ServerSocket(<one arg, no commas/parens>)` — deliberately does
+# NOT match the 2- or 3-arg overloads (those already specify a backlog and/or
+# bind address explicitly, so leave them alone rather than risk mangling
+# something already intentional).
+_SERVER_SOCKET_PATTERN = re.compile(r"new\s+ServerSocket\s*\(\s*([^,()]+?)\s*\)")
+
+
+def patch_loopback_only(java_files):
+    """Rewrite every single-arg `new ServerSocket(PORT)` call to bind to a
+    *runtime-configurable* address (JVM system property `preview.bindAddr`,
+    defaulting to 127.0.0.1) instead of all interfaces (the JVM default for
+    that constructor).
+
+    This is deliberately a runtime property rather than a literal baked in
+    at compile time: it means the exact same jar can be launched two
+    different ways —
+      java -jar chatroom-server.jar
+          -> binds 127.0.0.1 (default), used for the internal Python-driven
+             preview demo. Unreachable from outside the container no matter
+             how the host platform's public port routing is configured.
+      java -Dpreview.bindAddr=<tailscale-ip> -jar chatroom-server.jar
+          -> binds only that address, used for a second, independent server
+             instance that's reachable exclusively over the Tailscale
+             network a CheerpJ-hosted real GUI client joins — see
+             /preview/chatroom-network/gui-config in app.py.
+    Neither launch mode ever binds 0.0.0.0, so this never re-opens the
+    public-internet exposure that caused the original bug.
+
+    Real socket-based multiplayer/LAN behavior between actual separate
+    machines on someone's own network is exactly what a hardcoded loopback
+    bind would break, so this is opt-in (--loopback-only) and meant for
+    preview builds specifically, not the real downloadable source.
+    Returns the number of call sites patched, across all files, for the
+    caller to report (and warn on, if zero — that likely means the source
+    doesn't construct its socket the way this was written to expect)."""
+    total = 0
+    for path in java_files:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read()
+
+        def _replace(m):
+            nonlocal total
+            total += 1
+            port_expr = m.group(1)
+            return (f'new ServerSocket({port_expr}, 50, '
+                    f'java.net.InetAddress.getByName('
+                    f'System.getProperty("preview.bindAddr", "127.0.0.1")))')
+
+        patched = _SERVER_SOCKET_PATTERN.sub(_replace, content)
+        if patched != content:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(patched)
+    return total
+
+
+# Slug-specific source patches that are too particular to be a generic CLI
+# flag (a single, targeted find/replace on one file, with a comment
+# explaining exactly why). Applied automatically for a matching slug,
+# always on top of --loopback-only if that's also passed. Keep this list
+# short and each entry well-documented — it's the audit trail for exactly
+# how a preview build's behavior diverges from the real distributed source.
+PREVIEW_SOURCE_PATCHES = {
+    "chatroom": [
+        (
+            "ChatClient.java",
+            # Real ChatClient always auto-detects the local LAN IP via
+            # `ifconfig` (getIP()) and unconditionally tries to create a
+            # desktop shortcut — neither makes sense for a copy running
+            # inside a browser via CheerpJ. Preview build instead takes the
+            # target host as argv[0] (cheerpjRunMain's args param), falling
+            # back to the original auto-detect + shortcut behavior if no
+            # arg is given, so this patch is a strict superset, not a
+            # removal, of the original behavior.
+            'createShortcut("Chatrooms", "ChatClient", "icon.png");\n'
+            '        SERVER_IP = getIP();',
+            'if (args != null && args.length > 0 && args[0] != null && !args[0].isEmpty()) {\n'
+            '            SERVER_IP = args[0];\n'
+            '        } else {\n'
+            '            createShortcut("Chatrooms", "ChatClient", "icon.png");\n'
+            '            SERVER_IP = getIP();\n'
+            '        }',
+        ),
+    ],
+}
+
+
+def apply_source_patches(slug, java_files):
+    patches = PREVIEW_SOURCE_PATCHES.get(slug)
+    if not patches:
+        return 0
+    by_name = {os.path.basename(p): p for p in java_files}
+    applied = 0
+    for filename, old, new in patches:
+        path = by_name.get(filename)
+        if path is None:
+            print(f"WARNING: source patch for {slug} targets {filename}, "
+                  f"but that file wasn't found in the source zip.", file=sys.stderr)
+            continue
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read()
+        if old not in content:
+            print(f"WARNING: source patch for {slug}/{filename} didn't match "
+                  f"anything — the source may have changed since this patch "
+                  f"was written. Skipping that patch.", file=sys.stderr)
+            continue
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content.replace(old, new, 1))
+        applied += 1
+    return applied
+
+
 LAUNCHER_TEMPLATE = """\
 public class {launcher_name} {{
     public static void main(String[] args) throws Exception {{
@@ -190,6 +301,24 @@ def main():
     parser.add_argument("--main-class")
     parser.add_argument("--entry-class")
     parser.add_argument("--entry-method", default="main")
+    parser.add_argument(
+        "--jar-name",
+        help="Output filename (default: <slug>.jar). Use this when the "
+             "preview jar's name in app.py doesn't match the slug — e.g. "
+             "chatroom's preview_server_entry is 'chatroom-server.jar', not "
+             "'chatroom.jar'.",
+    )
+    parser.add_argument(
+        "--loopback-only",
+        action="store_true",
+        help="Rewrite single-arg `new ServerSocket(PORT)` calls to bind "
+             "127.0.0.1 only, so the preview's real server process can't be "
+             "reached from outside this machine no matter how the hosting "
+             "platform's public port routing is set up. Only use this for "
+             "preview builds — it does NOT touch static/downloads/*.zip, so "
+             "anyone who downloads the real source still gets a socket that "
+             "binds all interfaces, which real LAN/multi-machine use needs.",
+    )
     parser.add_argument("--no-download-zip", action="store_true")
     args = parser.parse_args()
 
@@ -211,6 +340,24 @@ def main():
         print(f"Extracting {args.source_zip} ...")
         with zipfile.ZipFile(args.source_zip) as zf:
             zf.extractall(src_root)
+
+        java_files = find_java_files(src_root)
+        patched_sites = apply_source_patches(args.slug, java_files)
+        if patched_sites:
+            print(f"Applied {patched_sites} slug-specific source patch(es) for '{args.slug}'.")
+        if args.loopback_only:
+            patched_count = patch_loopback_only(java_files)
+            if patched_count == 0:
+                print(
+                    "WARNING: --loopback-only was set but no single-arg "
+                    "`new ServerSocket(PORT)` call was found to patch — the "
+                    "source may already bind explicitly, or construct its "
+                    "socket a different way. Double check before assuming "
+                    "this build is actually loopback-only.",
+                    file=sys.stderr,
+                )
+            else:
+                print(f"Patched {patched_count} ServerSocket call site(s) to bind 127.0.0.1 only.")
 
         print("Compiling...")
         java_files = compile_sources(javac_cmd, src_root, out_dir)
@@ -236,7 +383,8 @@ def main():
                 sys.exit(1)
             print(f"  using {main_class}")
 
-        jar_path = os.path.join(PORTFOLIO_ROOT, "static", "previews", args.slug, f"{args.slug}.jar")
+        jar_filename = args.jar_name or f"{args.slug}.jar"
+        jar_path = os.path.join(PORTFOLIO_ROOT, "static", "previews", args.slug, jar_filename)
         build_jar(out_dir, main_class, jar_path)
         print(f"Wrote {jar_path}")
 

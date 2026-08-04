@@ -9,20 +9,37 @@
   {% if images %}
   <div class="gallery">
     <div class="gallery-main">
-      <img id="gallery-main-img"
-           src="{{ url_for('static', filename='images/' + project.slug + '/' + images[0]) }}"
-           alt="{{ project.name }} screenshot 1">
+      <button type="button" id="gallery-main-btn" class="gallery-main-btn" aria-label="View larger screenshot">
+        <img id="gallery-main-img"
+             src="{{ url_for('static', filename='images/' + project.slug + '/' + images[0]) }}"
+             alt="{{ project.name }} screenshot 1">
+      </button>
     </div>
     {% if images|length > 1 %}
     <div class="gallery-thumbs">
       {% for img in images %}
       <button type="button" class="gallery-thumb {{ 'is-active' if loop.first }}"
-              data-full="{{ url_for('static', filename='images/' + project.slug + '/' + img) }}">
+              data-full="{{ url_for('static', filename='images/' + project.slug + '/' + img) }}"
+              data-index="{{ loop.index0 }}">
         <img src="{{ url_for('static', filename='images/' + project.slug + '/' + img) }}" alt="{{ project.name }} thumbnail {{ loop.index }}">
       </button>
       {% endfor %}
     </div>
     {% endif %}
+  </div>
+  <div id="lightbox" class="lightbox" hidden>
+    <div class="lightbox-backdrop" data-close-lightbox></div>
+    <button type="button" id="lightbox-close" class="lightbox-close" aria-label="Close">&times;</button>
+    {% if images|length > 1 %}
+    <button type="button" id="lightbox-prev" class="lightbox-arrow lightbox-prev" aria-label="Previous screenshot">&#8249;</button>
+    <button type="button" id="lightbox-next" class="lightbox-arrow lightbox-next" aria-label="Next screenshot">&#8250;</button>
+    {% endif %}
+    <figure class="lightbox-figure">
+      <img id="lightbox-img" src="" alt="">
+      {% if images|length > 1 %}
+      <figcaption id="lightbox-count" class="lightbox-count"></figcaption>
+      {% endif %}
+    </figure>
   </div>
   {% else %}
   <div class="gallery-main gallery-main--placeholder" aria-hidden="true"></div>

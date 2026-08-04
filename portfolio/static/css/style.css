@@ -135,9 +135,72 @@ code {
   font-weight: 600;
 }
 
+/* --- Homepage stats strip ------------------------------------------- */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 3rem;
+}
+.stat-tile {
+  background: var(--bg-raised);
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.15rem;
+}
+.stat-number {
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.stat-label {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* --- Homepage featured projects --------------------------------------- */
+.featured-projects { margin-bottom: 3rem; }
+.see-all-link { display: inline-block; margin-top: 1.5rem; font-size: 0.9rem; }
+
 /* --- Page head (Projects / About) --------------------------------------- */
 .page-head { margin-bottom: 2.5rem; }
 .page-head h1 { margin-bottom: 0.5rem; }
+.project-filter-toggle { display: flex; gap: 0.5rem; margin-top: 1rem; }
+.project-filter-toggle a {
+  font-size: 0.85rem;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+}
+.project-filter-toggle a:hover { color: var(--text); text-decoration: none; }
+.project-filter-toggle a.is-active {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+.pinned-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
 .page-head p { color: var(--text-dim); }
 
 /* --- Project grid --------------------------------------------------- */
@@ -193,6 +256,7 @@ code {
   border: 1px solid var(--border);
 }
 .btn-secondary:hover { border-color: var(--text-dim); }
+.btn-small { padding: 0.25rem 0.65rem; font-size: 0.8rem; margin-left: 0.5rem; }
 
 /* --- Project detail --------------------------------------------------- */
 .back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--text-dim); }
@@ -333,6 +397,69 @@ code {
 }
 .timeline-body h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
 .timeline-body p { margin: 0; color: var(--text-dim); }
+.timeline-body p + p { margin-top: 0.75rem; } /* multi-paragraph achievement writeups */
+.achievement-category-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  vertical-align: middle;
+}
+.achievement-filter { margin-bottom: 1.5rem; }
+
+/* --- Certifications --------------------------------------------------- */
+.cert-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+.cert-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  display: flex;
+  gap: 1rem;
+}
+.cert-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  object-fit: contain; /* company logos are rarely square — avoid cropping them */
+  background: #fff;    /* most badge/logo art (Credly, AWS, Coursera, etc.) assumes a light backdrop */
+  padding: 4px;
+  flex-shrink: 0;
+}
+.cert-badge--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+.cert-card-body h2 { margin: 0 0 0.2rem; font-size: 1.05rem; }
+.cert-meta { color: var(--text-dim); font-size: 0.85rem; margin: 0 0 0.6rem; }
+.cert-description { color: var(--text-dim); font-size: 0.9rem; margin: 0 0 0.6rem; }
+.cert-credential-link { display: inline-block; font-size: 0.85rem; margin-top: 0.4rem; }
+.cert-credential-id { display: block; font-size: 0.8rem; color: var(--text-dim); margin-top: 0.4rem; }
+.cert-card-body .skill-tags { margin: 0 0 0.4rem; }
+
+/* --- Section divider (Certifications -> Achievements) ----------------- */
+.section-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 3rem 0;
+}
+
+.achievements { margin-top: 0; }
 
 /* --- Preview modal -------------------------------------------------- */
 .preview-modal {
@@ -507,6 +634,15 @@ code {
   background: var(--bg-raised);
 }
 .gallery-main img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery-main-btn {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
 .gallery-main--placeholder {
   background: repeating-linear-gradient(
     45deg, var(--border), var(--border) 10px, var(--bg-raised) 10px, var(--bg-raised) 20px
@@ -533,6 +669,88 @@ code {
 .gallery-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .gallery-thumb.is-active { border-color: var(--accent); }
 .gallery-thumb:hover { border-color: var(--text-dim); }
+
+/* --- Screenshot lightbox ------------------------------------------------- */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox[hidden] { display: none; }
+.lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 7, 9, 0.88);
+}
+.lightbox-figure {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  max-width: 92vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.lightbox-figure img {
+  max-width: 92vw;
+  max-height: 82vh;
+  width: auto;
+  height: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  display: block;
+}
+.lightbox-count {
+  margin-top: 0.75rem;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+.lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1.25rem;
+  z-index: 2;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+}
+.lightbox-close:hover { color: var(--accent); }
+.lightbox-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  background: rgba(12, 13, 16, 0.6);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 2rem;
+  line-height: 1;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox-arrow:hover { border-color: var(--accent); color: var(--accent); }
+.lightbox-prev { left: 1rem; }
+.lightbox-next { right: 1rem; }
+@media (max-width: 600px) {
+  .lightbox-arrow { width: 2.4rem; height: 2.4rem; font-size: 1.5rem; }
+  .lightbox-prev { left: 0.4rem; }
+  .lightbox-next { right: 0.4rem; }
+  .lightbox-close { top: 0.5rem; right: 0.6rem; }
+}
 
 /* --- Detail header ------------------------------------------------------ */
 .detail-header { margin-top: 1.5rem; }
@@ -590,6 +808,8 @@ code {
 .scrollable-text {
   max-height: 420px;
   overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   margin: 0;
   background: #0c0d10;
   border: 1px solid var(--border);
@@ -598,7 +818,7 @@ code {
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 0.82rem;
   line-height: 1.5;
-  white-space: pre-wrap;
+  white-space: pre;
   color: var(--text);
 }
 .content-text-block figcaption {

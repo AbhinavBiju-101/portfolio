@@ -5,6 +5,10 @@
 <section class="page-head">
   <h1>Projects</h1>
   <p>Each one is set up to download and run locally.</p>
+  <div class="project-filter-toggle">
+    <a href="{{ url_for('projects') }}" class="{{ 'is-active' if not pinned_only }}">All</a>
+    <a href="{{ url_for('projects', filter='pinned') }}" class="{{ 'is-active' if pinned_only }}">Pinned only</a>
+  </div>
 </section>
 
 <section class="project-grid">
@@ -17,7 +21,10 @@
       <div class="project-thumb project-thumb--placeholder" aria-hidden="true"></div>
     {% endif %}
     <div class="project-card-body">
-      <h2><a href="{{ url_for('project_detail', slug=project.slug) }}">{{ project.name }}</a></h2>
+      <h2>
+        <a href="{{ url_for('project_detail', slug=project.slug) }}">{{ project.name }}</a>
+        {% if project.pinned %}<span class="pinned-badge" title="One of the top projects">&#9733; Pinned</span>{% endif %}
+      </h2>
       <p class="project-tagline">{{ project.tagline }}</p>
       {{ render_tags(project) }}
       <div class="project-actions">
@@ -27,7 +34,11 @@
     </div>
   </article>
   {% else %}
+  {% if pinned_only %}
+  <p>No pinned projects yet — set <code>"pinned": True</code> on a few of your best in the <code>PROJECTS</code> list in <code>app.py</code>.</p>
+  {% else %}
   <p>No projects yet — add some to the <code>PROJECTS</code> list in <code>app.py</code>.</p>
+  {% endif %}
   {% endfor %}
 </section>
 {% endblock %}

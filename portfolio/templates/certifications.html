@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Certifications & Achievements — Portfolio{% endblock %}
+{% block content %}
+<section class="page-head">
+  <h1>Certifications &amp; Achievements</h1>
+  <p>Formal credentials, plus other things worth calling out that aren't a project or a course.</p>
+</section>
+
+<section class="cert-grid">
+  {% for cert in certifications %}
+  <article class="cert-card">
+    {% if cert.image %}
+      {% if cert.image.startswith('http://') or cert.image.startswith('https://') %}
+        <img class="cert-badge" src="{{ cert.image }}" alt="{{ cert.name }}" loading="lazy">
+      {% else %}
+        <img class="cert-badge" src="{{ url_for('static', filename='images/certifications/' + cert.image) }}" alt="{{ cert.name }}" loading="lazy">
+      {% endif %}
+    {% else %}
+      <div class="cert-badge cert-badge--placeholder" aria-hidden="true">{{ cert.name[0] }}</div>
+    {% endif %}
+    <div class="cert-card-body">
+      <h2>{{ cert.name }}</h2>
+      <p class="cert-meta">{{ cert.issuer }}{% if cert.date %} &middot; {{ cert.date }}{% endif %}</p>
+      {% if cert.description %}<p class="cert-description">{{ cert.description }}</p>{% endif %}
+      {% if cert.skills %}
+      <ul class="skill-tags">
+        {% for skill in cert.skills %}
+        <li><span class="skill-tag">{{ skill }}</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% if cert.credential_url %}
+      <a class="cert-credential-link" href="{{ cert.credential_url }}" target="_blank" rel="noopener">
+        View credential{% if cert.credential_id %} &middot; {{ cert.credential_id }}{% endif %} &rarr;
+      </a>
+      {% elif cert.credential_id %}
+      <span class="cert-credential-id">Credential ID: {{ cert.credential_id }}</span>
+      {% endif %}
+    </div>
+  </article>
+  {% else %}
+  <p>No certifications yet — add some to the <code>CERTIFICATIONS</code> list in <code>app.py</code>.</p>
+  {% endfor %}
+</section>
+
+<hr class="section-divider">
+
+<section class="achievements">
+  <h2 class="timeline-heading">Achievements</h2>
+  {% if achievement_categories %}
+  <div class="project-filter-toggle achievement-filter">
+    <a href="{{ url_for('certifications') }}" class="{{ 'is-active' if not active_category }}">All</a>
+    {% for cat in achievement_categories %}
+    <a href="{{ url_for('certifications', category=cat) }}" class="{{ 'is-active' if active_category == cat }}">{{ cat }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <ol class="timeline-list">
+    {% for item in achievements %}
+    <li class="timeline-item">
+      <span class="timeline-date">{{ item.date }}</span>
+      <div class="timeline-body">
+        <h3>{{ item.title }}{% if item.category %} <span class="achievement-category-tag">{{ item.category }}</span>{% endif %}</h3>
+        {{ item.description|markdownify|safe }}
+      </div>
+    </li>
+    {% else %}
+    <li><p>{% if active_category %}No achievements in "{{ active_category }}" yet.{% else %}No achievements yet — add some to the <code>ACHIEVEMENTS</code> list in <code>app.py</code>.{% endif %}</p></li>
+    {% endfor %}
+  </ol>
+</section>
+{% endblock %}

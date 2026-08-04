@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import render_tags %}
 {% block title %}Home — Abhinav Biju{% endblock %}
 {% block content %}
 <section class="hero">
@@ -7,4 +8,59 @@
   <p class="hero-sub">Aspiring software engineer — first-year B.Tech CSE @ VIT Chennai, online BS Data Science @ IIT Madras. Coding since I was 10.</p>
   <a class="hero-cta" href="{{ url_for('projects') }}">See the projects &rarr;</a>
 </section>
+
+<section class="stats-strip">
+  <div class="stat-tile">
+    <span class="stat-number">{{ stats.years_coding }}</span>
+    <span class="stat-label">Years coding</span>
+  </div>
+  <div class="stat-tile">
+    <span class="stat-number">{{ stats.num_projects }}</span>
+    <span class="stat-label">Projects built</span>
+  </div>
+  <div class="stat-tile">
+    <span class="stat-number">{{ stats.num_certifications }}</span>
+    <span class="stat-label">Certifications</span>
+  </div>
+  <div class="stat-tile">
+    <span class="stat-number">{{ "{:,}".format(stats.views) }}</span>
+    <span class="stat-label">Portfolio views</span>
+  </div>
+  <div class="stat-tile">
+    <span class="stat-number">{{ "{:,}".format(stats.lines_of_code) }}</span>
+    <span class="stat-label">Lines of code</span>
+  </div>
+  <div class="stat-tile">
+    <span class="stat-number">{{ "{:,}".format(stats.github_stars) if stats.github_stars is not none else "—" }}</span>
+    <span class="stat-label">GitHub stars</span>
+  </div>
+</section>
+
+{% if featured_projects %}
+<section class="featured-projects">
+  <h2 class="timeline-heading">Featured Projects</h2>
+  <div class="project-grid">
+    {% for project in featured_projects %}
+    <article class="project-card">
+      {% set images = project_images(project) %}
+      {% if images %}
+        <img class="project-thumb" src="{{ url_for('static', filename='images/' + project.slug + '/' + images[0]) }}" alt="{{ project.name }}">
+      {% else %}
+        <div class="project-thumb project-thumb--placeholder" aria-hidden="true"></div>
+      {% endif %}
+      <div class="project-card-body">
+        <h2><a href="{{ url_for('project_detail', slug=project.slug) }}">{{ project.name }}</a></h2>
+        <p class="project-tagline">{{ project.tagline }}</p>
+        {{ render_tags(project) }}
+        <div class="project-actions">
+          <a class="btn btn-primary" href="{{ url_for('download', slug=project.slug) }}">Download</a>
+          <a class="btn btn-secondary" href="{{ url_for('project_detail', slug=project.slug) }}">Details</a>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  <a class="see-all-link" href="{{ url_for('projects') }}">See all projects &rarr;</a>
+</section>
+{% endif %}
 {% endblock %}

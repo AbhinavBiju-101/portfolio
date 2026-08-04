@@ -45,7 +45,18 @@
   }
 
   function seed() {
-    const count = Math.min(120, Math.floor((width * height) / 30000));
+    // Density is measured per *viewport*-worth of area, then scaled up to
+    // however many viewports tall the full document is. Using the raw
+    // canvas area (width * full document height) here under-counts on
+    // mobile: a narrow phone viewport keeps the page's pixel width small
+    // while stacked layout still makes it several viewports tall, so the
+    // old formula produced very few particles spread across a lot of
+    // vertical space, which is why the effect looked almost absent on
+    // mobile even though it was fine on desktop.
+    const viewportH = window.innerHeight || height;
+    const viewportsTall = Math.max(1, height / viewportH);
+    const perViewport = Math.max(30, Math.floor((width * viewportH) / 9000));
+    const count = Math.min(500, Math.floor(perViewport * viewportsTall));
     particles = Array.from({ length: count }, () => makeParticle(true));
   }
   seed();

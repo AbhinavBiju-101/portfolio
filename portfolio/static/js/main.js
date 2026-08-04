@@ -270,6 +270,65 @@ async function loadCheerpJPreview(src, container, mainClass) {
   }
 }
 
+// --- Chatroom's real Swing GUI client, via CheerpJ + Tailscale -----------
+// Unlike loadCheerpJPreview() above (a plain single-player Swing app with no
+// networking), this runs the actual ChatClient.java unmodified — real
+// Socket() calls and all — against the SAME shared server the simulated
+// text clients talk to. Browsers can't open raw TCP sockets at all, so
+// CheerpJ bridges java.net.Socket over Tailscale's WebSocket-based relay;
+// see /preview/chatroom-network/gui-config in app.py for how the
+// short-lived, ACL-restricted auth key it uses gets minted.
+// Reference: https://cheerpj.com/docs/guides/Networking
+async function loadCheerpJChatPreview(container, onBack) {
+  container.innerHTML = '<p class="preview-status">Checking GUI preview availability…</p>';
+
+  try {
+    const configRes = await fetch("/preview/chatroom-network/gui-config");
+    if (!configRes.ok) {
+      const body = await configRes.json().catch(() => ({}));
+      container.innerHTML = `
+        <p class="preview-status">${escapeHtml(body.error || "GUI preview isn't available on this deployment.")}</p>
+        <button id="gui-back-btn" type="button" class="btn btn-secondary">Back to the text preview</button>
+      `;
+      document.getElementById("gui-back-btn").addEventListener("click", onBack);
+      return;
+    }
+    const { authKey, serverHost } = await configRes.json();
+
+    container.innerHTML = '<p class="preview-status">Loading Java runtime…</p>';
+    if (!window.cheerpjInit) {
+      await loadScript("https://cjrtnc.leaningtech.com/4.3/loader.js");
+    }
+    // Free/non-commercial CheerpJ shows a small runtime watermark unless a
+    // licenseKey is configured — expected and fine for a portfolio demo.
+    await cheerpjInit({ tailscaleAuthKey: authKey });
+
+    container.innerHTML = `
+      <div id="cheerpj-display" class="cheerpj-display"></div>
+      <p class="preview-hint">
+        Real Swing client, real socket, connected to the same shared server.
+        <button id="gui-back-btn" type="button" class="btn btn-secondary btn-small">Back to the text preview</button>
+      </p>
+    `;
+    document.getElementById("gui-back-btn").addEventListener("click", () => {
+      // CheerpJ doesn't expose a documented way to tear down a running
+      // session cleanly — going "back" here swaps the DOM but the CheerpJ
+      // runtime and its Tailscale connection stay alive in the background
+      // until the whole modal/page is closed. Known rough edge, not a
+      // silent failure: worth revisiting if that turns out to matter.
+      onBack();
+    });
+    cheerpjCreateDisplay(-1, -1, document.getElementById("cheerpj-display"));
+    await cheerpjRunMain("ChatClient", "/app/static/previews/chatroom/chatroom-client-gui.jar", serverHost);
+  } catch (err) {
+    container.innerHTML = `
+      <p class="preview-status preview-error">Couldn't load the real GUI client: ${escapeHtml(String(err))}</p>
+      <button id="gui-back-btn" type="button" class="btn btn-secondary">Back to the text preview</button>
+    `;
+    document.getElementById("gui-back-btn").addEventListener("click", onBack);
+  }
+}
+
 // --- Networked multi-client preview (Chatroom) ---------------------------
 // Connects to a shared, always-on demo (real ChatServer + 5 simulated
 // clients, server-side). Lets you switch which client's perspective you're
@@ -293,9 +352,18 @@ async function loadNetworkSimPreview(slug, container, onSource) {
         <input id="console-input" type="text" autocomplete="off" placeholder="Type input and press Enter…">
         <button class="btn btn-primary" type="submit">Send</button>
       </form>
-      <p class="preview-hint">Shared demo — everyone previewing this project right now sees the same room.</p>
+      <p class="preview-hint">
+        Shared demo — everyone previewing this project right now sees the same room.
+        <button id="try-real-gui-btn" type="button" class="btn btn-secondary btn-small">Try the real GUI client</button>
+      </p>
     `;
     const tabsEl = container.querySelector(".network-tabs");
+    const guiBtn = document.getElementById("try-real-gui-btn");
+    guiBtn.addEventListener("click", () => {
+      if (currentSource) currentSource.close();
+      onSource(null);
+      loadCheerpJChatPreview(container, () => loadNetworkSimPreview(slug, container, onSource));
+    });
     const output = document.getElementById("console-output");
     const form = document.getElementById("console-form");
     const input = document.getElementById("console-input");
@@ -388,14 +456,82 @@ function showComingSoon(container, runtime) {
 // --- Screenshot gallery ------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
   const mainImg = document.getElementById("gallery-main-img");
-  const thumbs = document.querySelectorAll(".gallery-thumb");
-  if (!mainImg || !thumbs.length) return;
+  const mainBtn = document.getElementById("gallery-main-btn");
+  const thumbs = Array.from(document.querySelectorAll(".gallery-thumb"));
+  if (!mainImg || !mainBtn) return;
+
+  // Full list of { src, alt } for every screenshot, in order, so the
+  // lightbox can step through them even for a project that only has one
+  // image (no thumbs) or several.
+  const images = thumbs.length
+    ? thumbs.map((t) => ({ src: t.dataset.full, alt: t.querySelector("img").alt }))
+    : [{ src: mainImg.src, alt: mainImg.alt }];
+
+  let activeIndex = 0;
+
+  function setActive(index) {
+    activeIndex = index;
+    mainImg.src = images[index].src;
+    mainImg.alt = images[index].alt;
+    thumbs.forEach((t) => t.classList.toggle("is-active", Number(t.dataset.index) === index));
+  }
 
   thumbs.forEach((thumb) => {
-    thumb.addEventListener("click", () => {
-      mainImg.src = thumb.dataset.full;
-      thumbs.forEach((t) => t.classList.remove("is-active"));
-      thumb.classList.add("is-active");
-    });
+    thumb.addEventListener("click", () => setActive(Number(thumb.dataset.index)));
   });
+
+  // --- Lightbox: bigger popup, arrow-key/arrow-button navigation ---------
+  const lightbox = document.getElementById("lightbox");
+  if (!lightbox) return;
+
+  const lightboxImg = document.getElementById("lightbox-img");
+  const lightboxCount = document.getElementById("lightbox-count");
+  const closeBtn = document.getElementById("lightbox-close");
+  const prevBtn = document.getElementById("lightbox-prev");
+  const nextBtn = document.getElementById("lightbox-next");
+
+  function showInLightbox(index) {
+    activeIndex = (index + images.length) % images.length;
+    lightboxImg.src = images[activeIndex].src;
+    lightboxImg.alt = images[activeIndex].alt;
+    if (lightboxCount) lightboxCount.textContent = `${activeIndex + 1} / ${images.length}`;
+    setActive(activeIndex);
+  }
+
+  function openLightbox(index) {
+    showInLightbox(index);
+    lightbox.hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeLightbox() {
+    lightbox.hidden = true;
+    document.body.style.overflow = "";
+  }
+
+  mainBtn.addEventListener("click", () => openLightbox(activeIndex));
+  thumbs.forEach((thumb) => {
+    thumb.addEventListener("dblclick", () => openLightbox(Number(thumb.dataset.index)));
+  });
+  closeBtn.addEventListener("click", closeLightbox);
+  lightbox.querySelectorAll("[data-close-lightbox]").forEach((el) => el.addEventListener("click", closeLightbox));
+  if (prevBtn) prevBtn.addEventListener("click", () => showInLightbox(activeIndex - 1));
+  if (nextBtn) nextBtn.addEventListener("click", () => showInLightbox(activeIndex + 1));
+
+  document.addEventListener("keydown", (e) => {
+    if (lightbox.hidden) return;
+    if (e.key === "Escape") closeLightbox();
+    else if (e.key === "ArrowLeft") showInLightbox(activeIndex - 1);
+    else if (e.key === "ArrowRight") showInLightbox(activeIndex + 1);
+  });
+
+  // Basic swipe support so the lightbox is usable on mobile too.
+  let touchStartX = null;
+  lightbox.addEventListener("touchstart", (e) => { touchStartX = e.changedTouches[0].clientX; }, { passive: true });
+  lightbox.addEventListener("touchend", (e) => {
+    if (touchStartX === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 40) showInLightbox(activeIndex + (dx < 0 ? 1 : -1));
+    touchStartX = null;
+  }, { passive: true });
 });

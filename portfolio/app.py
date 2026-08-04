@@ -9,8 +9,10 @@ import shutil
 import socket
 import threading
 import subprocess
+import zipfile
 import markdown as md
 import requests
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -37,6 +39,14 @@ def load_content_text(relative_path):
 # content/grimoire-legacy/spell_list.txt to update it (e.g. after adding
 # new spells, just re-paste fresh output from the game into that file).
 GRIMOIRE_SPELL_LIST = load_content_text("grimoire-legacy/spell_list.txt")
+
+# Captured the same way as the grimoire spell list above: real output from
+# the actual game (java -jar mining-simulator.jar -> log in -> "2. Index"),
+# ANSI color codes stripped and "Spawn Message: null" lines dropped for
+# readability, not hand-typed. See content/mining-simulator/item_index.txt
+# to update it (e.g. after adding a new mineral) — just re-paste fresh
+# "Index" output from the game into that file.
+MINING_ITEM_INDEX = load_content_text("mining-simulator/item_index.txt")
 
 
 # --- Project data -----------------------------------------------------
@@ -69,9 +79,20 @@ GRIMOIRE_SPELL_LIST = load_content_text("grimoire-legacy/spell_list.txt")
 #                      {"type": "markdown", "content": "..."}
 #                      {"type": "image", "src": "step1.png", "caption": "..."}
 #                      {"type": "video", "src": "https://youtube.com/embed/XYZ"}  # or local .mp4
+# "pinned"       -> True to mark this as one of your top/flagship projects.
+#                    Pinned projects sort first on /projects (and get a
+#                    small "Pinned" badge there), and are the ones shown in
+#                    the homepage's "Featured Projects" strip. Everything
+#                    still shows up on /projects regardless — this only
+#                    affects ordering/highlighting, not visibility. Meant
+#                    for exactly the "top 10 vs smaller projects" split —
+#                    once you've got more than a handful of projects, pin
+#                    your best ~10 and leave smaller/support ones (like
+#                    Chatroom) unpinned.
 PROJECTS = [
     {
         "slug": "grimoire-legacy",
+        "pinned": True,
         "name": "Grimoire: Legacy",
         "tagline": "A turn-based spell combat simulator with 150+ unique spells and deep effect interactions.",
         "description": (
@@ -187,6 +208,7 @@ PROJECTS = [
     },
     {
         "slug": "mining-simulator",
+        "pinned": True,
         "name": "Mining Simulator",
         "tagline": "A text-based mining game — 35 minerals across 4 rarity variants each, with LCM-based weighted drop rates and persistent player accounts.",
         "description": (
@@ -262,6 +284,14 @@ PROJECTS = [
                 ],
             },
             {
+                "title": "Full item index",
+                "blocks": [
+                    {"type": "text", "caption": "The full mineral index, viewable in-game via the \"Index\" menu option — all 35 minerals across Earth, Imaginary, and Air, with each rarity variant's actual odds.", "content": (
+                        MINING_ITEM_INDEX
+                    )},
+                ],
+            },
+            {
                 "title": "What's next",
                 "blocks": [
                     {"type": "markdown", "content": (
@@ -278,6 +308,7 @@ PROJECTS = [
     },
     {
         "slug": "greed-island",
+        "pinned": True,
         "name": "Greed Island",
         "tagline": "An evolutionary simulation — 20 autonomous AI agents develop survival strategies through genetic inheritance over generations.",
         "description": (
@@ -411,6 +442,7 @@ PROJECTS = [
     },
     {
         "slug": "skynetgrid",
+        "pinned": True,
         "name": "SkynetGrid",
         "tagline": "A remote lab-administration suite — deployed with school approval to a computer lab for remote screen viewing, input control, and terminal access.",
         "description": (
@@ -485,6 +517,7 @@ PROJECTS = [
     },
     {
         "slug": "chatroom",
+        "pinned": False,  # smaller/support project — you mentioned this as the "not top-10" example
         "name": "Chatroom (v11)",
         "tagline": "A LAN chatroom with a Swing GUI client, multi-client server, file transfer, and emoji support — v11 of an iterated project.",
         "description": (
@@ -552,6 +585,260 @@ PROJECTS = [
 ]
 
 DOWNLOAD_DIR = os.path.join(app.root_path, "static", "downloads")
+
+
+# --- Homepage stats -------------------------------------------------------
+# All four numbers on the homepage's stats strip are computed live, not
+# hand-maintained — that's the "auto update" part. Three of them are free
+# (just len() on data that already exists); only the view counter needs
+# actual state.
+#
+# CODING_START_YEAR: best estimate, not exact — derived from the hero's
+# "Coding since I was 10" plus About's timeline ("5th Grade: Scratch" as the
+# starting point). Adjust this by a year or two if it's off; there's no way
+# for the app to know your real start date on its own.
+CODING_START_YEAR = 2018
+
+# View counter: a small JSON file in Flask's instance folder (the
+# conventional place for runtime-generated data that isn't part of the
+# versioned source — see content/ vs instance/ for the distinction). Two
+# honest caveats worth knowing before relying on this number:
+#   1. Most PaaS containers (Render included) have an EPHEMERAL filesystem
+#      — this file, and the count in it, resets to 0 on every redeploy
+#      unless you attach a persistent disk. Fine for "roughly how much
+#      traffic since the last deploy," not fine as a permanent lifetime
+#      counter without extra infra.
+#   2. It only counts real GET requests to "/" from something that doesn't
+#      look like a bot/health-checker (see _looks_like_bot below) — that's
+#      a best-effort heuristic based on the health-check/scanner traffic
+#      we've actually observed hitting this site, not a robust anti-bot
+#      system. Some automated traffic will still get counted; that's
+#      normal for a simple counter like this.
+STATS_FILE = os.path.join(app.instance_path, "site_stats.json")
+STATS_LOCK = threading.Lock()
+
+_BOT_UA_SUBSTRINGS = ("bot", "crawler", "spider", "curl", "wget", "python-requests",
+                      "go-http-client", "monitor", "uptime", "render", "headlesschrome")
+
+
+def _looks_like_bot(user_agent):
+    ua = (user_agent or "").lower()
+    return (not ua) or any(s in ua for s in _BOT_UA_SUBSTRINGS)
+
+
+def _read_stats_file():
+    try:
+        with open(STATS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {"views": 0}
+
+
+def _record_view():
+    with STATS_LOCK:
+        data = _read_stats_file()
+        data["views"] = data.get("views", 0) + 1
+        try:
+            os.makedirs(app.instance_path, exist_ok=True)
+            with open(STATS_FILE, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+        except OSError:
+            pass  # read-only filesystem or similar — don't break the homepage over a counter
+        return data["views"]
+
+
+def get_homepage_stats(count_this_visit):
+    if count_this_visit:
+        views = _record_view()
+    else:
+        views = _read_stats_file().get("views", 0)
+    return {
+        "years_coding": max(1, datetime.now().year - CODING_START_YEAR),
+        "num_projects": len(PROJECTS),
+        "num_certifications": len(CERTIFICATIONS),
+        "views": views,
+        "lines_of_code": TOTAL_LOC,
+        "github_stars": get_github_stars(),
+    }
+
+
+# --- Lines of code ---------------------------------------------------------
+# Counted straight from the actual downloadable source archives in
+# static/downloads/ — the exact same code a visitor would get from hitting
+# Download — rather than a live GitHub API call, since there's no LOC
+# endpoint in GitHub's API and cloning every repo on every homepage load
+# would be both slow and needless. This runs once at process startup (small
+# zips, negligible cost) and stays fixed until the next deploy/restart —
+# genuinely "auto-updating" in the sense that it reflects whatever's
+# actually in static/downloads/ right now, you just won't see it move
+# within a single running instance.
+_CODE_EXTENSIONS = {
+    ".java", ".py", ".js", ".jsx", ".ts", ".tsx", ".css", ".html",
+    ".c", ".cpp", ".h", ".hpp", ".go", ".rb", ".php", ".kt", ".swift", ".rs", ".sql",
+}
+
+
+def _count_lines_of_code():
+    total = 0
+    per_project = {}
+    if not os.path.isdir(DOWNLOAD_DIR):
+        return total, per_project
+    for fname in sorted(os.listdir(DOWNLOAD_DIR)):
+        if not fname.endswith(".zip"):
+            continue
+        slug = fname[:-4]
+        count = 0
+        try:
+            with zipfile.ZipFile(os.path.join(DOWNLOAD_DIR, fname)) as zf:
+                for info in zf.infolist():
+                    if info.is_dir():
+                        continue
+                    ext = os.path.splitext(info.filename)[1].lower()
+                    if ext not in _CODE_EXTENSIONS:
+                        continue
+                    try:
+                        with zf.open(info) as f:
+                            count += sum(1 for _ in f)
+                    except (OSError, zipfile.BadZipFile):
+                        continue
+        except (zipfile.BadZipFile, FileNotFoundError):
+            continue
+        per_project[slug] = count
+        total += count
+    return total, per_project
+
+
+TOTAL_LOC, LOC_BY_PROJECT = _count_lines_of_code()
+
+
+# --- GitHub stars ------------------------------------------------------
+# Live, unlike lines-of-code above — stars actually change over time and
+# GitHub's API makes this cheap to ask for directly, so it's a real fetch
+# with an in-memory cache (1 hour TTL) rather than a snapshot. Sums stars
+# across every project with a "github" field set (currently just Grimoire:
+# Legacy, but this scales automatically as you add more).
+#
+# Unauthenticated GitHub API calls are rate-limited to 60/hour per source
+# IP — the cache is what keeps this well under that regardless of traffic.
+# If a fetch fails (rate-limited, offline, GitHub down) this serves the
+# last known-good value instead of erroring the homepage; if it's NEVER
+# succeeded (e.g. right after a fresh deploy with no network yet), it
+# returns None and the template shows "—" rather than a fabricated 0.
+GITHUB_STARS_CACHE = {"total": None, "fetched_at": 0.0}
+GITHUB_STARS_LOCK = threading.Lock()
+GITHUB_STARS_TTL_SECONDS = 3600
+
+
+def get_github_stars():
+    now = time.time()
+    with GITHUB_STARS_LOCK:
+        cached, age_ok = GITHUB_STARS_CACHE["total"], (now - GITHUB_STARS_CACHE["fetched_at"] < GITHUB_STARS_TTL_SECONDS)
+        if cached is not None and age_ok:
+            return cached
+
+    repos = [p["github"] for p in PROJECTS if p.get("github")]
+    total = 0
+    all_ok = True
+    for repo in repos:
+        try:
+            resp = requests.get(
+                f"https://api.github.com/repos/{repo}",
+                headers={"Accept": "application/vnd.github+json"},
+                timeout=4,
+            )
+            if resp.status_code == 200:
+                total += resp.json().get("stargazers_count", 0)
+            else:
+                all_ok = False
+        except requests.RequestException:
+            all_ok = False
+
+    with GITHUB_STARS_LOCK:
+        if all_ok:
+            GITHUB_STARS_CACHE["total"] = total
+            GITHUB_STARS_CACHE["fetched_at"] = now
+        # if a fetch failed, deliberately leave the cache alone — either it
+        # already holds a real last-known-good value (serve that, stale is
+        # fine), or it's still None (serve None, not a fabricated 0)
+        return GITHUB_STARS_CACHE["total"]
+
+
+# --- Certifications & Achievements -------------------------------------
+# Two separate lists shown on one page (/certifications), divided by a
+# visual separator — certifications first, achievements below.
+#
+# CERTIFICATIONS — formal, issuer-backed credentials.
+#   "name"            -> certification title
+#   "issuer"          -> who issued it (e.g. "Google", "IIT Madras")
+#   "date"            -> whatever granularity you want: "March 2026", "2025"
+#   "credential_url"  -> optional link to a verification page. Omit/None if
+#                        there isn't a public verify link.
+#   "credential_id"   -> optional, shown next to the link if set
+#   "description"     -> optional 1-2 sentence blurb, plain text (not markdown)
+#   "skills"          -> optional list of small tag labels (not linked to
+#                        the Skills page — these are cert-specific, e.g.
+#                        exam domains, not tied to a PROJECTS "skills" tag)
+#   "image"           -> a badge or company logo. Either a filename in
+#                        static/images/certifications/ (drop the file there),
+#                        or a full http(s) URL if you'd rather link a logo
+#                        hosted elsewhere (issuer's site, Credly, etc.) —
+#                        both work interchangeably. Falls back to a plain
+#                        initial-letter badge if omitted. Logos are shown at
+#                        their natural aspect ratio on a light backdrop
+#                        (most badge art assumes one), not cropped to a square.
+#
+# THE TWO ENTRIES BELOW ARE PLACEHOLDERS so the page has something to show
+# and the layout is easy to sanity-check — replace them with your real
+# certifications (delete these two once you do).
+CERTIFICATIONS = [
+    {
+        "name": "Example Certification — replace me",
+        "issuer": "Issuing Organization",
+        "date": "2026",
+        "credential_url": None,
+        "credential_id": None,
+        "description": "Swap this out for a real certification — see the CERTIFICATIONS list in app.py.",
+        "skills": [],
+        "image": None,
+    },
+]
+
+# ACHIEVEMENTS — anything else worth highlighting that isn't a formal
+# credential: hackathon placements, competition results, scholarships,
+# published work, internships, notable recognitions, etc.
+#   "title"       -> short name of the achievement
+#   "category"    -> a short label shown as a tag next to the date. Common
+#                    ones: "Hackathon", "Competition", "Publication",
+#                    "Internship", "Scholarship", "Recognition" — but it's
+#                    free text, use whatever fits. Categories are derived
+#                    from whatever's actually in this list (no separate
+#                    list to keep in sync), and double as filter buttons on
+#                    the page.
+#   "date"        -> same free-form granularity as certifications
+#   "description" -> markdown, can be multiple paragraphs ("\n\n" between
+#                    them) — this is meant for the "what I did, what I
+#                    achieved, when it was" writeup, same authoring style
+#                    as a PROJECTS "description"
+ACHIEVEMENTS = [
+    {
+        "title": "Example Achievement — replace me",
+        "category": "Hackathon",
+        "date": "2026",
+        "description": (
+            "Swap this out for a real achievement — see the ACHIEVEMENTS "
+            "list in app.py. Supports multiple paragraphs, same as a "
+            "project's description field.\n\n"
+            "Second paragraph, for example covering what specifically was "
+            "achieved and any measurable outcome."
+        ),
+    },
+    {
+        "title": "Another Example — replace or delete me",
+        "category": "Internship",
+        "date": "2026",
+        "description": "A second placeholder just to show the category filter with more than one category in play — delete both once you've added your real entries.",
+    },
+]
 
 
 def build_index(projects, field):
@@ -652,12 +939,21 @@ def get_default_branch(owner, repo):
 # --- Page routes --------------------------------------------------------
 @app.route("/")
 def home():
-    return render_template("index.html", active="home")
+    count_this_visit = request.method == "GET" and not _looks_like_bot(request.user_agent.string)
+    stats = get_homepage_stats(count_this_visit)
+    featured = [p for p in PROJECTS if p.get("pinned")]
+    return render_template("index.html", active="home", stats=stats, featured_projects=featured)
 
 
 @app.route("/projects")
 def projects():
-    return render_template("projects.html", active="projects", projects=PROJECTS)
+    pinned_only = request.args.get("filter") == "pinned"
+    # Stable sort: pinned projects float to the top, everything else keeps
+    # its original relative order underneath — nothing is ever hidden by
+    # this sort, only reordered (use ?filter=pinned to actually hide the rest).
+    sorted_projects = sorted(PROJECTS, key=lambda p: not p.get("pinned", False))
+    shown = [p for p in sorted_projects if p.get("pinned")] if pinned_only else sorted_projects
+    return render_template("projects.html", active="projects", projects=shown, pinned_only=pinned_only)
 
 
 @app.route("/projects/<slug>")
@@ -676,6 +972,21 @@ def about():
 @app.route("/skills")
 def skills():
     return render_template("skills.html", active="skills", languages=LANGUAGES, skills=SKILLS)
+
+
+@app.route("/certifications")
+def certifications():
+    categories = sorted({a["category"] for a in ACHIEVEMENTS if a.get("category")})
+    active_category = request.args.get("category")
+    shown_achievements = (
+        [a for a in ACHIEVEMENTS if a.get("category") == active_category]
+        if active_category else ACHIEVEMENTS
+    )
+    return render_template(
+        "certifications.html", active="certifications",
+        certifications=CERTIFICATIONS, achievements=shown_achievements,
+        achievement_categories=categories, active_category=active_category,
+    )
 
 
 @app.route("/skills/<name>")
@@ -740,6 +1051,61 @@ def _flush_chunk(q, buf):
     if buf:
         q.put(_ANSI_ESCAPE.sub("", "".join(buf)))
         buf.clear()
+
+
+class BroadcastHub:
+    """Fan-out point for output that more than one browser tab/visitor might
+    watch at once (the chatroom's shared server log and 5 shared clients).
+
+    Previously each channel was a single queue.Queue() that every SSE
+    connection read from directly with .get() — but .get() *removes* the
+    item, it doesn't copy it. Two simultaneous viewers on the same client
+    tab were racing for the same messages, so each only ever saw about half
+    the conversation. A hub gives every subscriber its own private queue and
+    publish() fans each chunk out to all of them, so N viewers all see every
+    message. It also keeps a short backlog so a (re)connecting viewer isn't
+    dropped into a blank screen, and remembers if the channel already ended
+    so a late subscriber gets that immediately instead of hanging."""
+
+    def __init__(self, history_limit=4000):
+        self._subscribers = set()
+        self._lock = threading.Lock()
+        self._history = []
+        self._history_len = 0
+        self._history_limit = history_limit
+        self._ended = False
+
+    def put(self, chunk):
+        """Alias so this can drop into _reader_thread/_flusher_thread/
+        _flush_chunk unchanged — they only ever call q.put(...)."""
+        with self._lock:
+            if chunk is None:
+                self._ended = True
+                subs = list(self._subscribers)
+            else:
+                self._history.append(chunk)
+                self._history_len += len(chunk)
+                while self._history_len > self._history_limit and len(self._history) > 1:
+                    self._history_len -= len(self._history.pop(0))
+                subs = list(self._subscribers)
+        for sub_q in subs:
+            sub_q.put(chunk)
+
+    def subscribe(self):
+        sub_q = queue.Queue()
+        with self._lock:
+            self._subscribers.add(sub_q)
+            backlog = "".join(self._history)
+            ended = self._ended
+        if backlog:
+            sub_q.put(backlog)
+        if ended:
+            sub_q.put(None)
+        return sub_q
+
+    def unsubscribe(self, sub_q):
+        with self._lock:
+            self._subscribers.discard(sub_q)
 
 
 def _reader_thread(read_stream, q, buf, buf_lock):
@@ -906,7 +1272,7 @@ def preview_stop(session_id):
 # unaffected by who's watching.
 CHAT_CLIENT_LABELS = ["Client 1", "Client 2", "Client 3", "Client 4", "Client 5"]
 CHAT_NETWORK_LOCK = threading.Lock()
-CHAT_NETWORK_STATE = {"server_proc": None, "server_q": None, "server_buf": None,
+CHAT_NETWORK_STATE = {"server_proc": None, "server_hub": None, "server_buf": None,
                        "server_buf_lock": None, "clients": {}}
 
 
@@ -950,12 +1316,12 @@ def _ensure_chatroom_network():
             if "started on port" in line:
                 break
 
-        server_q = queue.Queue()
+        server_hub = BroadcastHub()
         for line in early_lines:
-            server_q.put(_ANSI_ESCAPE.sub("", line))
+            server_hub.put(_ANSI_ESCAPE.sub("", line))
         server_buf, server_buf_lock = [], threading.Lock()
-        threading.Thread(target=_reader_thread, args=(proc.stdout, server_q, server_buf, server_buf_lock), daemon=True).start()
-        threading.Thread(target=_flusher_thread, args=(lambda: proc.poll() is None, server_q, server_buf, server_buf_lock), daemon=True).start()
+        threading.Thread(target=_reader_thread, args=(proc.stdout, server_hub, server_buf, server_buf_lock), daemon=True).start()
+        threading.Thread(target=_flusher_thread, args=(lambda: proc.poll() is None, server_hub, server_buf, server_buf_lock), daemon=True).start()
 
         clients = {}
         for i, label in enumerate(CHAT_CLIENT_LABELS, start=1):
@@ -973,17 +1339,17 @@ def _ensure_chatroom_network():
                     time.sleep(0.2)
             if sock is None:
                 continue  # this one client failed to connect; leave it out
-            q = queue.Queue()
+            hub = BroadcastHub()
             buf, buf_lock = [], threading.Lock()
             read_stream = sock.makefile("r", encoding="utf-8", newline="")
             alive = {"v": True}
-            threading.Thread(target=_reader_thread, args=(read_stream, q, buf, buf_lock), daemon=True).start()
-            threading.Thread(target=_flusher_thread, args=(lambda a=alive: a["v"], q, buf, buf_lock), daemon=True).start()
-            clients[client_id] = {"sock": sock, "queue": q, "buf": buf, "buf_lock": buf_lock,
+            threading.Thread(target=_reader_thread, args=(read_stream, hub, buf, buf_lock), daemon=True).start()
+            threading.Thread(target=_flusher_thread, args=(lambda a=alive: a["v"], hub, buf, buf_lock), daemon=True).start()
+            clients[client_id] = {"sock": sock, "hub": hub, "buf": buf, "buf_lock": buf_lock,
                                    "label": label, "alive": alive}
 
         CHAT_NETWORK_STATE.update({
-            "server_proc": proc, "server_q": server_q, "server_buf": server_buf,
+            "server_proc": proc, "server_hub": server_hub, "server_buf": server_buf,
             "server_buf_lock": server_buf_lock, "clients": clients,
         })
         return CHAT_NETWORK_STATE
@@ -1000,28 +1366,58 @@ def chatroom_network_start():
     })
 
 
+@app.route("/preview/chatroom-network/gui-config")
+def chatroom_network_gui_config():
+    """Config for the optional 'real Swing GUI' preview (CheerpJ + Tailscale)
+    — see loadCheerpJChatPreview() in main.js. Deliberately returns 503
+    rather than a broken client-side load when the deployment hasn't been
+    set up with a tailnet yet, since local dev / a fresh deploy won't have
+    these env vars set and the sim-only preview should keep working fine.
+
+    TAILSCALE_CLIENT_AUTHKEY is meant to be handed to every visitor's
+    browser — that's expected, not a leak, *as long as* it's an ephemeral,
+    reusable, tagged key whose ACL only permits reaching the chat server's
+    own tagged node on the chat port. It is NOT the same key used to join
+    the server container itself to the tailnet (TAILSCALE_SERVER_AUTHKEY,
+    used only in the container's own startup script, never sent to a
+    browser). See the deployment notes in README.md before setting these.
+    """
+    auth_key = os.environ.get("TAILSCALE_CLIENT_AUTHKEY")
+    server_host = os.environ.get("TAILSCALE_CHATROOM_HOSTNAME", "chatroom-server")
+    if not auth_key:
+        return jsonify({"error": "GUI preview isn't configured on this deployment yet."}), 503
+    return jsonify({"authKey": auth_key, "serverHost": server_host})
+
+
 @app.route("/preview/chatroom-network/stream/<channel>")
 def chatroom_network_stream(channel):
     state = CHAT_NETWORK_STATE
     if channel == "server":
-        q = state["server_q"]
+        hub = state["server_hub"]
     else:
         client = state["clients"].get(channel)
-        q = client["queue"] if client else None
-    if q is None:
+        hub = client["hub"] if client else None
+    if hub is None:
         abort(404)
 
     def gen():
-        while True:
-            try:
-                chunk = q.get(timeout=25)
-            except queue.Empty:
-                yield ": keepalive\n\n"
-                continue
-            if chunk is None:
-                yield "event: end\ndata: {}\n\n"
-                break
-            yield f"data: {json.dumps(chunk)}\n\n"
+        # Each connection gets its own subscriber queue so multiple viewers
+        # (or the same viewer reconnecting) all see every message, instead
+        # of racing to drain one shared queue between them.
+        sub_q = hub.subscribe()
+        try:
+            while True:
+                try:
+                    chunk = sub_q.get(timeout=25)
+                except queue.Empty:
+                    yield ": keepalive\n\n"
+                    continue
+                if chunk is None:
+                    yield "event: end\ndata: {}\n\n"
+                    break
+                yield f"data: {json.dumps(chunk)}\n\n"
+        finally:
+            hub.unsubscribe(sub_q)
 
     return Response(gen(), mimetype="text/event-stream")
 
@@ -1047,16 +1443,18 @@ def not_found(e):
 
 
 if __name__ == "__main__":
+    # host="0.0.0.0" + $PORT matters for cloud deploys (e.g. Render): the
+    # platform assigns a port via the PORT env var and expects the process
+    # to bind ALL interfaces on it. Flask's default (127.0.0.1) only accepts
+    # connections from inside this exact process's own network namespace —
+    # not reachable from the platform's edge/proxy at all. Falls back to
+    # 5000 for local dev, matching the README's instructions.
+    #
     # use_reloader=False on purpose: the reloader restarts the whole worker
     # process on file changes, which kills any live java-console preview
     # subprocesses (their stdin pipe closes -> Scanner throws
     # NoSuchElementException). If you want template auto-reload back while
     # developing, re-enable it, but expect any open preview to die on save.
-    app.run(
-        host="0.0.0.0",
-        port=5000,
-        debug=False,
-        use_reloader=False,
-        threaded=True,
-    )
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False, threaded=True)
     

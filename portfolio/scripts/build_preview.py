@@ -106,12 +106,27 @@ def find_public_main_class(java_files):
     return None
 
 
-def compile_sources(javac_cmd, src_root, out_dir):
+def compile_sources(javac_cmd, src_root, out_dir, release=None):
+    """`release`, if given, is passed as `--release N` to javac, pinning the
+    output .class file bytecode version instead of defaulting to whatever
+    the local JDK happens to be. This matters specifically for CheerpJ-based
+    previews: CheerpJ 4.3 only loads class files up to Java 17 (major
+    version 61) — if this build machine has a newer JDK on PATH (21, 25,
+    whatever), classes compile fine locally with `java -jar` but CheerpJ
+    then refuses to load them in-browser with a "Required Java version NN,
+    but CheerpJ only supports up to Java 17" error. --release also makes
+    javac validate against that version's actual API (not just tag the
+    class file number), so this catches real incompatibilities too, not
+    just the version tag.
+    """
     java_files = find_java_files(src_root)
     if not java_files:
         raise RuntimeError("No .java files found in the source zip.")
     os.makedirs(out_dir, exist_ok=True)
-    cmd = javac_cmd + ["-d", out_dir, "-cp", src_root, "-encoding", "UTF-8"] + java_files
+    cmd = javac_cmd + ["-d", out_dir, "-cp", src_root, "-encoding", "UTF-8"]
+    if release:
+        cmd += ["--release", str(release)]
+    cmd += java_files
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"Compilation failed:\n{result.stderr}")
@@ -309,6 +324,19 @@ def main():
              "'chatroom.jar'.",
     )
     parser.add_argument(
+        "--release",
+        type=int,
+        default=17,
+        help="Bytecode/API level to compile against, passed to `javac "
+             "--release`. Defaults to 17, the newest version CheerpJ 4.3 "
+             "can load in-browser — leave this alone for any project using "
+             "the 'cheerpj' or 'network-sim' (real GUI) runtime. Pass a "
+             "higher number (or --release 0 to skip the flag entirely and "
+             "use the local JDK's default) only for java-console previews "
+             "that never run through CheerpJ, if you specifically need "
+             "newer language features.",
+    )
+    parser.add_argument(
         "--loopback-only",
         action="store_true",
         help="Rewrite single-arg `new ServerSocket(PORT)` calls to bind "
@@ -359,8 +387,8 @@ def main():
             else:
                 print(f"Patched {patched_count} ServerSocket call site(s) to bind 127.0.0.1 only.")
 
-        print("Compiling...")
-        java_files = compile_sources(javac_cmd, src_root, out_dir)
+        print("Compiling..." + (f" (targeting Java {args.release})" if args.release else ""))
+        java_files = compile_sources(javac_cmd, src_root, out_dir, release=args.release or None)
         print(f"  compiled {len(java_files)} source file(s)")
 
         if args.main_class:

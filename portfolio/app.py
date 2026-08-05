@@ -1485,6 +1485,10 @@ if __name__ == "__main__":
     # subprocesses (their stdin pipe closes -> Scanner throws
     # NoSuchElementException). If you want template auto-reload back while
     # developing, re-enable it, but expect any open preview to die on save.
+    # debug=True enables Werkzeug's interactive in-browser debugger on any
+    # unhandled exception — great for local dev, but on a public deployment
+    # it lets anyone who can trigger a 500 attempt to run arbitrary Python
+    # on the server. Defaults OFF; opt in locally with FLASK_DEBUG=1.
+    debug = os.environ.get("FLASK_DEBUG", "").lower() in ("1", "true", "yes")
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False, threaded=True)
-    
+    app.run(host="0.0.0.0", port=port, debug=debug, use_reloader=False, threaded=True)

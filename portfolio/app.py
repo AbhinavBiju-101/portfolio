@@ -1298,11 +1298,64 @@ CHAT_NETWORK_STATE = {"server_proc": None, "server_hub": None, "server_buf": Non
                        "server_buf_lock": None, "clients": {}}
 
 
+def _spawn_chat_client(label):
+    """Connect one simulated client socket to the (already-running) shared
+    server and wire up its reader/flusher threads + hub. Returns the client
+    dict for CHAT_NETWORK_STATE["clients"], or None if it couldn't connect.
+    Factored out of _ensure_chatroom_network() so the same logic can both
+    spin up the initial 5 clients and later revive any that have died —
+    see the healing loop below."""
+    sock = None
+    # Small retry window: the startup line can print a moment before
+    # the server's accept() loop is actually ready to take connections.
+    for attempt in range(10):
+        try:
+            sock = socket.create_connection(("127.0.0.1", 12345), timeout=2)
+            sock.sendall((label + "\n").encode("utf-8"))
+            break
+        except OSError:
+            sock = None
+            time.sleep(0.2)
+    if sock is None:
+        return None
+    hub = BroadcastHub()
+    buf, buf_lock = [], threading.Lock()
+    read_stream = sock.makefile("r", encoding="utf-8", newline="")
+    alive = {"v": True}
+    threading.Thread(target=_reader_thread, args=(read_stream, hub, buf, buf_lock), daemon=True).start()
+    threading.Thread(target=_flusher_thread, args=(lambda a=alive: a["v"], hub, buf, buf_lock), daemon=True).start()
+    return {"sock": sock, "hub": hub, "buf": buf, "buf_lock": buf_lock, "label": label, "alive": alive}
+
+
 def _ensure_chatroom_network():
     """Idempotent: starts the shared server + 5 clients on first call, and
-    just returns the existing state on every call after that."""
+    just returns the existing state on every call after that.
+
+    "Existing state" used to mean *whatever's in CHAT_NETWORK_STATE*, even
+    if one or more of the 5 simulated clients had quietly died — e.g. their
+    socket got reset, or the server booted a client that then dropped. The
+    server_proc itself was still running, so the early-return above always
+    fired and nothing ever re-connected that one client: its BroadcastHub
+    stays permanently "ended", and every subsequent SSE subscriber for it
+    just gets the old backlog replayed followed by an immediate end (this is
+    what shows up client-side as the demo being stuck on "[disconnected]").
+    So on every call, also check for and revive any dead clients before
+    returning — cheap when everything's healthy (one attribute check per
+    client), and self-heals the common case without needing to restart the
+    whole shared server (which would also kick every other visitor
+    currently watching it)."""
     with CHAT_NETWORK_LOCK:
         if CHAT_NETWORK_STATE["server_proc"] is not None and CHAT_NETWORK_STATE["server_proc"].poll() is None:
+            for client_id, client in list(CHAT_NETWORK_STATE["clients"].items()):
+                if not client["hub"]._ended:
+                    continue
+                revived = _spawn_chat_client(client["label"])
+                if revived is not None:
+                    CHAT_NETWORK_STATE["clients"][client_id] = revived
+                # If revival failed too, leave the dead entry in place rather
+                # than dropping it — it'll just show as ended/disconnected
+                # for that tab (same as before this fix) instead of
+                # disappearing, and we'll retry again on the next call.
             return CHAT_NETWORK_STATE
 
         project = get_project("chatroom")
@@ -1355,28 +1408,11 @@ def _ensure_chatroom_network():
 
         clients = {}
         for i, label in enumerate(CHAT_CLIENT_LABELS, start=1):
-            client_id = f"client-{i}"
-            sock = None
-            # Small retry window: the startup line can print a moment before
-            # the server's accept() loop is actually ready to take connections.
-            for attempt in range(10):
-                try:
-                    sock = socket.create_connection(("127.0.0.1", 12345), timeout=2)
-                    sock.sendall((label + "\n").encode("utf-8"))
-                    break
-                except OSError:
-                    sock = None
-                    time.sleep(0.2)
-            if sock is None:
-                continue  # this one client failed to connect; leave it out
-            hub = BroadcastHub()
-            buf, buf_lock = [], threading.Lock()
-            read_stream = sock.makefile("r", encoding="utf-8", newline="")
-            alive = {"v": True}
-            threading.Thread(target=_reader_thread, args=(read_stream, hub, buf, buf_lock), daemon=True).start()
-            threading.Thread(target=_flusher_thread, args=(lambda a=alive: a["v"], hub, buf, buf_lock), daemon=True).start()
-            clients[client_id] = {"sock": sock, "hub": hub, "buf": buf, "buf_lock": buf_lock,
-                                   "label": label, "alive": alive}
+            client = _spawn_chat_client(label)
+            if client is not None:
+                clients[f"client-{i}"] = client
+            # else: this one client failed to connect; leave it out (the
+            # healing check above will keep retrying it on later calls)
 
         CHAT_NETWORK_STATE.update({
             "server_proc": proc, "server_hub": server_hub, "server_buf": server_buf,

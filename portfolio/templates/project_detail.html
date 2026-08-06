@@ -100,7 +100,7 @@
           <span class="text-zoom-readout" aria-live="polite"></span>
           <button type="button" class="text-zoom-btn" data-zoom="in" aria-label="Increase text size">A+</button>
         </div>
-        <pre class="scrollable-text">{{ block.content }}</pre>
+        <pre class="scrollable-text text-zoom-target">{{ block.content }}</pre>
         {% if block.caption %}<figcaption>{{ block.caption }}</figcaption>{% endif %}
       </figure>
       {% endif %}

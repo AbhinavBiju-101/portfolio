@@ -964,7 +964,14 @@ def home():
     count_this_visit = request.method == "GET" and not _looks_like_bot(request.user_agent.string)
     stats = get_homepage_stats(count_this_visit)
     featured = [p for p in PROJECTS if p.get("pinned")]
-    return render_template("index.html", active="home", stats=stats, featured_projects=featured)
+    # Homepage doubles as a scannable overview of the whole site now (About,
+    # Achievements, Certifications, Projects), each section a condensed
+    # teaser linking through to its full page — so pass a small slice of
+    # each rather than the full lists that their own dedicated pages use.
+    return render_template(
+        "index.html", active="home", stats=stats, featured_projects=featured,
+        top_achievements=ACHIEVEMENTS[:3], top_certifications=CERTIFICATIONS[:3],
+    )
 
 
 @app.route("/projects")

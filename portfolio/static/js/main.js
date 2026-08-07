@@ -133,6 +133,24 @@ async function loadPyodidePreview(src, container) {
 // stdout over Server-Sent Events; keystrokes go back over a small POST
 // endpoint. See the /preview/<slug>/start, /preview/stream/<id>, and
 // /preview/input/<id> routes in app.py.
+
+// Shared by loadJavaConsolePreview and loadNetworkSimPreview below: the
+// A-/A+ font-size toolbar (see the "Text zoom controls" module further
+// down) plus the actual scrolling console box and its loading hint.
+function consoleOutputMarkup() {
+  return `
+    <div class="text-block-toolbar">
+      <button type="button" class="text-zoom-btn" data-zoom="out" aria-label="Decrease text size">A&minus;</button>
+      <span class="text-zoom-readout" aria-live="polite"></span>
+      <button type="button" class="text-zoom-btn" data-zoom="in" aria-label="Increase text size">A+</button>
+    </div>
+    <div class="console-output-wrap">
+      <pre id="console-output" class="console-output text-zoom-target" aria-live="polite"></pre>
+      ${previewLoadingHintMarkup()}
+    </div>
+  `;
+}
+
 async function loadJavaConsolePreview(slug, container, onSession) {
   container.innerHTML = '<p class="preview-status">Starting the Java process…</p>';
 
@@ -145,13 +163,14 @@ async function loadJavaConsolePreview(slug, container, onSession) {
     const { session_id } = await startRes.json();
 
     container.innerHTML = `
-      <pre id="console-output" class="console-output" aria-live="polite"></pre>
+      ${consoleOutputMarkup()}
       <form id="console-form" class="console-input-row">
         <input id="console-input" type="text" autocomplete="off" placeholder="Type input and press Enter…">
         <button class="btn btn-primary" type="submit">Send</button>
       </form>
     `;
     const output = document.getElementById("console-output");
+    const outputWrap = output.parentElement; // .console-output-wrap — the actual scrolling element
     const form = document.getElementById("console-form");
     const input = document.getElementById("console-input");
 
@@ -163,8 +182,13 @@ async function loadJavaConsolePreview(slug, container, onSession) {
     const MAX_OUTPUT_CHARS = 20000;
     let buffer = "";
     let renderScheduled = false;
+    let hintDismissed = false;
 
     function appendOutput(text) {
+      if (!hintDismissed) {
+        hintDismissed = true;
+        hidePreviewLoadingHint(container);
+      }
       buffer += text;
       if (buffer.length > MAX_OUTPUT_CHARS) {
         buffer = buffer.slice(buffer.length - MAX_OUTPUT_CHARS);
@@ -173,7 +197,7 @@ async function loadJavaConsolePreview(slug, container, onSession) {
         renderScheduled = true;
         requestAnimationFrame(() => {
           output.textContent = buffer;
-          output.scrollTop = output.scrollHeight;
+          outputWrap.scrollTop = outputWrap.scrollHeight;
           renderScheduled = false;
         });
       }
@@ -249,6 +273,56 @@ function stopJavaConsoleSession(session, useBeacon) {
 // a real CheerpJ session (this environment has no internet access to verify
 // against the current CheerpJ docs) — check https://cheerpj.com/docs before
 // relying on it.
+
+// CheerpJ 4.3 supports Java 8, 11 or 17 runtimes, and *defaults to 8* if
+// cheerpjInit() isn't told otherwise. build_preview.py compiles every
+// preview jar with `--release 17` (see its --release help text) — the
+// newest bytecode level CheerpJ 4.3 can load — so the runtime needs to be
+// told to match, or it'll try to run Java-17-targeted class files under a
+// Java 8 runtime.
+const CHEERPJ_VERSION = 17;
+
+// Shared "this is loading, not broken" hint — used by both the CheerpJ
+// display and the console previews below, since both can take a real
+// moment (Greed Island in particular: ~10s to boot, and laggy once it's
+// up) with nothing visible in the meantime otherwise. The parent it's
+// inserted into must be position:relative (.cheerpj-wrap / .console-output-wrap).
+const PREVIEW_LOADING_HINT_TEXT = "Preview might take a minute to load — hang tight, it isn't broken.";
+function previewLoadingHintMarkup() {
+  return `<p class="preview-status preview-loading-hint">${escapeHtml(PREVIEW_LOADING_HINT_TEXT)}</p>`;
+}
+function hidePreviewLoadingHint(container) {
+  const hint = container.querySelector(".preview-loading-hint");
+  if (hint) hint.classList.add("is-hidden");
+}
+
+// Markup shared by both CheerpJ display modes: the actual display div CheerpJ
+// paints into, plus the loading hint layered on top of it. CheerpJ has no
+// documented "first frame painted" callback, so the hint is dismissed by
+// watching the display div for its first child element instead (see
+// watchCheerpjDisplay below) rather than on any promise resolving.
+function cheerpjDisplayMarkup() {
+  return `
+    <div class="cheerpj-wrap">
+      <div id="cheerpj-display" class="cheerpj-display"></div>
+      ${previewLoadingHintMarkup()}
+    </div>
+  `;
+}
+
+function watchCheerpjDisplay(container) {
+  const display = container.querySelector("#cheerpj-display");
+  if (!display) return display;
+  const observer = new MutationObserver(() => {
+    if (display.childElementCount > 0) {
+      hidePreviewLoadingHint(container);
+      observer.disconnect();
+    }
+  });
+  observer.observe(display, { childList: true });
+  return display;
+}
+
 async function loadCheerpJPreview(src, container, mainClass) {
   container.innerHTML = '<p class="preview-status">Loading Java runtime…</p>';
 
@@ -256,11 +330,12 @@ async function loadCheerpJPreview(src, container, mainClass) {
     if (!window.cheerpjInit) {
       await loadScript("https://cjrtnc.leaningtech.com/4.3/loader.js");
     }
-    await cheerpjInit();
+    await cheerpjInit({ version: CHEERPJ_VERSION });
 
-    container.innerHTML = '<div id="cheerpj-display" class="cheerpj-display"></div>';
+    container.innerHTML = cheerpjDisplayMarkup();
+    const display = watchCheerpjDisplay(container);
 
-    cheerpjCreateDisplay(-1, -1, document.getElementById("cheerpj-display"));
+    cheerpjCreateDisplay(-1, -1, display);
     // classPath must be the full "/app/..." path to the jar, matching the
     // web server's own URL path (the "/app/" prefix is CheerpJ's virtual
     // filesystem mount point for this origin's document root).
@@ -301,15 +376,21 @@ async function loadCheerpJChatPreview(container, onBack) {
     }
     // Free/non-commercial CheerpJ shows a small runtime watermark unless a
     // licenseKey is configured — expected and fine for a portfolio demo.
-    await cheerpjInit({ tailscaleAuthKey: authKey });
+    // version: see CHEERPJ_VERSION's comment above loadCheerpJPreview — same
+    // Java-8-by-default gotcha applies here, and it's worth ruling out first
+    // if the real socket connection below misbehaves, since a runtime/
+    // bytecode mismatch can surface as class-loading or networking-shim
+    // weirdness rather than a clean error.
+    await cheerpjInit({ tailscaleAuthKey: authKey, version: CHEERPJ_VERSION });
 
-    container.innerHTML = `
-      <div id="cheerpj-display" class="cheerpj-display"></div>
+    container.innerHTML = cheerpjDisplayMarkup();
+    const display = watchCheerpjDisplay(container);
+    container.insertAdjacentHTML("beforeend", `
       <p class="preview-hint">
         Real Swing client, real socket, connected to the same shared server.
         <button id="gui-back-btn" type="button" class="btn btn-secondary btn-small">Back to the text preview</button>
       </p>
-    `;
+    `);
     document.getElementById("gui-back-btn").addEventListener("click", () => {
       // CheerpJ doesn't expose a documented way to tear down a running
       // session cleanly — going "back" here swaps the DOM but the CheerpJ
@@ -318,7 +399,7 @@ async function loadCheerpJChatPreview(container, onBack) {
       // silent failure: worth revisiting if that turns out to matter.
       onBack();
     });
-    cheerpjCreateDisplay(-1, -1, document.getElementById("cheerpj-display"));
+    cheerpjCreateDisplay(-1, -1, display);
     await cheerpjRunMain("ChatClient", "/app/static/previews/chatroom/chatroom-client-gui.jar", serverHost);
   } catch (err) {
     container.innerHTML = `
@@ -347,7 +428,7 @@ async function loadNetworkSimPreview(slug, container, onSource) {
 
     container.innerHTML = `
       <div class="network-tabs" role="tablist"></div>
-      <pre id="console-output" class="console-output" aria-live="polite"></pre>
+      ${consoleOutputMarkup()}
       <form id="console-form" class="console-input-row">
         <input id="console-input" type="text" autocomplete="off" placeholder="Type input and press Enter…">
         <button class="btn btn-primary" type="submit">Send</button>
@@ -365,6 +446,7 @@ async function loadNetworkSimPreview(slug, container, onSource) {
       loadCheerpJChatPreview(container, () => loadNetworkSimPreview(slug, container, onSource));
     });
     const output = document.getElementById("console-output");
+    const outputWrap = output.parentElement; // .console-output-wrap — the actual scrolling element
     const form = document.getElementById("console-form");
     const input = document.getElementById("console-input");
 
@@ -382,18 +464,23 @@ async function loadNetworkSimPreview(slug, container, onSource) {
     let currentSource = null;
     let activeChannel = null;
     let renderScheduled = false;
+    let hintDismissed = false;
 
     function scheduleRender() {
       if (renderScheduled) return;
       renderScheduled = true;
       requestAnimationFrame(() => {
         output.textContent = buffers[activeChannel] || "";
-        output.scrollTop = output.scrollHeight;
+        outputWrap.scrollTop = outputWrap.scrollHeight;
         renderScheduled = false;
       });
     }
 
     function appendTo(channelId, text) {
+      if (!hintDismissed) {
+        hintDismissed = true;
+        hidePreviewLoadingHint(container);
+      }
       const existing = buffers[channelId] || "";
       let next = existing + text;
       if (next.length > MAX_OUTPUT_CHARS) next = next.slice(next.length - MAX_OUTPUT_CHARS);
@@ -412,7 +499,20 @@ async function loadNetworkSimPreview(slug, container, onSource) {
 
       currentSource = new EventSource(`/preview/${slug}-network/stream/${channelId}`);
       currentSource.onmessage = (event) => appendTo(channelId, JSON.parse(event.data));
-      currentSource.addEventListener("end", () => appendTo(channelId, "\n\n[disconnected]\n"));
+      currentSource.addEventListener("end", () => {
+        appendTo(channelId, "\n\n[disconnected]\n");
+        // The server-side hub for this channel has ended for good (its
+        // client's socket closed) and will keep re-sending its *entire*
+        // backlog + another "end" to every new subscriber from here on
+        // (see BroadcastHub.subscribe() in app.py) — so if we leave this
+        // EventSource open, the browser's built-in auto-reconnect just
+        // replays the whole join history over and over, which is exactly
+        // the repeating "[disconnected]" loop this used to produce.
+        // Closing it here stops that; explicitly .close() rather than
+        // relying on onerror, since a clean server-sent "end" isn't a
+        // connection error EventSource would otherwise treat as retryable.
+        currentSource.close();
+      });
       onSource(currentSource);
     }
 
@@ -649,56 +749,95 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// --- Scrollable text blocks: font-size zoom controls --------------------
-// A+/A- buttons next to each in-game text dump. Works the same on desktop
-// and mobile — there's no separate mobile-only path. The chosen size is
-// shared across every scrollable-text block on the page and remembered
-// between visits (handy since the default is intentionally small on mobile).
-document.addEventListener("DOMContentLoaded", () => {
-  const blocks = Array.from(document.querySelectorAll(".scrollable-text"));
-  const zoomBtns = Array.from(document.querySelectorAll(".text-zoom-btn"));
-  if (!blocks.length || !zoomBtns.length) return;
+// --- Text zoom controls: font-size A-/A+ ---------------------------------
+// Used by both the static in-game text dumps (.scrollable-text, present at
+// page load) and the console previews (.console-output, built well after
+// DOMContentLoaded — a project's preview modal only exists once opened).
+// Both carry a shared .text-zoom-target class. Rather than a single
+// querySelectorAll cached at DOMContentLoaded (which would miss toolbars
+// that don't exist yet), button clicks are handled via delegation on
+// `document`, and targets/readouts are re-queried live on every use — cheap,
+// and correct regardless of what's been dynamically added since. The chosen
+// size is shared across every target on the page and remembered between
+// visits (handy since the default is intentionally small on mobile).
+const TEXT_ZOOM_STORAGE_KEY = "scrollableTextFontRem";
+const TEXT_ZOOM_MIN_REM = 0.55;
+const TEXT_ZOOM_MAX_REM = 1.1;
+const TEXT_ZOOM_STEP_REM = 0.08;
+const TEXT_ZOOM_BASE_REM = 0.82; // matches the CSS desktop default, used for the % readout
 
-  const STORAGE_KEY = "scrollableTextFontRem";
-  const MIN_REM = 0.55;
-  const MAX_REM = 1.1;
-  const STEP_REM = 0.08;
-  const BASE_REM = 0.82; // matches the desktop default in style.css, used for the % readout
+function textZoomCurrentRem(el) {
+  const px = parseFloat(window.getComputedStyle(el).fontSize);
+  const rootPx = parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+  return px / rootPx;
+}
 
-  const readouts = Array.from(document.querySelectorAll(".text-zoom-readout"));
+function applyTextZoom(rem) {
+  document.querySelectorAll(".text-zoom-target").forEach((el) => { el.style.fontSize = rem + "rem"; });
+  const pct = Math.round((rem / TEXT_ZOOM_BASE_REM) * 100);
+  document.querySelectorAll(".text-zoom-readout").forEach((el) => { el.textContent = pct + "%"; });
+}
 
-  function currentRemSize(el) {
-    const px = parseFloat(window.getComputedStyle(el).fontSize);
-    const rootPx = parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
-    return px / rootPx;
-  }
-
-  function updateReadouts(rem) {
-    const pct = Math.round((rem / BASE_REM) * 100);
-    readouts.forEach((el) => { el.textContent = pct + "%"; });
-  }
-
-  function applySize(rem) {
-    blocks.forEach((el) => { el.style.fontSize = rem + "rem"; });
-    updateReadouts(rem);
-  }
-
-  const stored = parseFloat(localStorage.getItem(STORAGE_KEY));
+// Re-applies whatever size is currently in effect (stored, or each target's
+// own CSS default if the user hasn't picked one yet) to every
+// .text-zoom-target in the DOM right now. Safe to call repeatedly — once at
+// page load, and again right after building any new toolbar (e.g. a console
+// preview's), so its readout starts correct and its target picks up
+// whatever size was already chosen elsewhere on the page.
+function refreshTextZoomTargets() {
+  const targets = document.querySelectorAll(".text-zoom-target");
+  if (!targets.length) return;
+  const stored = parseFloat(localStorage.getItem(TEXT_ZOOM_STORAGE_KEY));
   if (!Number.isNaN(stored)) {
-    applySize(stored);
+    applyTextZoom(stored);
   } else {
-    updateReadouts(currentRemSize(blocks[0]));
+    const pct = Math.round((textZoomCurrentRem(targets[0]) / TEXT_ZOOM_BASE_REM) * 100);
+    document.querySelectorAll(".text-zoom-readout").forEach((el) => { el.textContent = pct + "%"; });
+  }
+}
+
+document.addEventListener("DOMContentLoaded", refreshTextZoomTargets);
+
+document.addEventListener("click", (event) => {
+  const btn = event.target.closest(".text-zoom-btn");
+  if (!btn) return;
+  const targets = document.querySelectorAll(".text-zoom-target");
+  if (!targets.length) return;
+  // getComputedStyle reflects the current inline size if one was set,
+  // otherwise whatever the CSS (incl. mobile media query) resolves to.
+  const base = textZoomCurrentRem(targets[0]);
+  const delta = btn.dataset.zoom === "in" ? TEXT_ZOOM_STEP_REM : -TEXT_ZOOM_STEP_REM;
+  const next = Math.min(TEXT_ZOOM_MAX_REM, Math.max(TEXT_ZOOM_MIN_REM, +(base + delta).toFixed(2)));
+  applyTextZoom(next);
+  localStorage.setItem(TEXT_ZOOM_STORAGE_KEY, next);
+});
+
+// --- Homepage scroll-reveal ------------------------------------------------
+// Fades + slides each .reveal section in as it's scrolled into view.
+// base.html adds .has-js to <html> synchronously (before body paints), which
+// is what the CSS keys off to hide .reveal elements pre-emptively — so if JS
+// never runs at all, content was never hidden in the first place. Here, if
+// the browser lacks IntersectionObserver or the person prefers reduced
+// motion, everything's just made visible immediately instead of observed.
+document.addEventListener("DOMContentLoaded", () => {
+  const targets = Array.from(document.querySelectorAll(".reveal"));
+  if (!targets.length) return;
+
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduceMotion || !("IntersectionObserver" in window)) {
+    targets.forEach((el) => el.classList.add("is-visible"));
+    return;
   }
 
-  zoomBtns.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      // getComputedStyle reflects the current inline size if one was set,
-      // otherwise whatever the CSS (incl. mobile media query) resolves to.
-      const base = currentRemSize(blocks[0]);
-      const delta = btn.dataset.zoom === "in" ? STEP_REM : -STEP_REM;
-      const next = Math.min(MAX_REM, Math.max(MIN_REM, +(base + delta).toFixed(2)));
-      applySize(next);
-      localStorage.setItem(STORAGE_KEY, next);
-    });
-  });
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add("is-visible");
+        observer.unobserve(entry.target);
+      });
+    },
+    { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
+  );
+  targets.forEach((el) => observer.observe(el));
 });

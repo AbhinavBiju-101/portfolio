@@ -559,19 +559,41 @@ code {
   overflow: auto;
 }
 
-/* --- Console-style preview (java-console) -------------------------------- */
-.console-output {
+/* --- Console-style preview (java-console / network-sim chatroom) -------- */
+/* .console-output-wrap is the actual scrolling box (both axes) and sizing
+   context (flex:1 auto to fill the modal); the <pre> inside sizes itself to
+   its content's natural width via width:max-content (never less than the
+   wrap's own width) with white-space:pre — same no-wrap-and-let-the-parent-
+   scroll technique as .scrollable-text/.content-text-block below, and for
+   the same reason: pre-wrap on mobile both (1) reflowed long lines even
+   though the box already scrolled vertically, and (2) silently dropped
+   whichever space character a line happened to wrap on (that's just how
+   the CSS text-wrapping algorithm treats a soft-wrap point) — so on narrow
+   screens, wherever a line broke, a space would visibly vanish. */
+.console-output-wrap {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   background: #0c0d10;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 0.75rem;
+}
+.console-output {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  box-sizing: border-box;
   padding: 1rem;
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 0.85rem;
-  white-space: pre-wrap;
-  overflow-y: auto;
-  margin-bottom: 0.75rem;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+  tab-size: 4;
+  margin: 0;
 }
 .console-input-row {
   display: flex;
@@ -653,12 +675,43 @@ code {
   white-space: pre-wrap;
   min-height: 2.5rem;
 }
+.cheerpj-wrap {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
 .cheerpj-display {
   width: 100%;
-  min-height: 300px;
+  flex: 1 1 auto;
+  min-height: 480px;
   background: #0c0d10;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+}
+/* Sits centered over the still-empty display/console while it boots.
+   Shared by the CheerpJ display (.cheerpj-wrap) and the java-console /
+   network-sim console (.console-output-wrap) — both position:relative,
+   both can take a real moment before anything shows up (some previews,
+   like Greed Island, take ~10s and are a little laggy once they do) and
+   with nothing here that reads as broken rather than just slow. */
+.preview-loading-hint {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 0.6rem 1rem;
+  max-width: 80%;
+  text-align: center;
+  background: rgba(12, 13, 16, 0.85);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.preview-loading-hint.is-hidden {
+  opacity: 0;
 }
 
 /* --- Gallery (Roblox-style screenshots) --------------------------------- */
@@ -970,9 +1023,101 @@ code {
     padding: 0.9rem 1rem;
     max-height: 320px;
   }
+  .console-output {
+    font-size: 0.72rem;
+    padding: 0.9rem 1rem;
+  }
 }
 
 /* --- Reduced motion ------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; }
 }
+
+/* --- Scroll-triggered reveal (homepage sections) ------------------------- */
+/* Progressive enhancement: only hidden-then-fades-in when JS actually runs
+   (base.html sets .has-js synchronously in <head>, before content paints,
+   so there's no flash of hidden content). No JS, no IntersectionObserver,
+   or prefers-reduced-motion set => everything just renders visible and
+   static, same as before this was added. */
+.has-js .reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.has-js .reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .has-js .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* --- Homepage: About / Achievements teaser sections ----------------------- */
+.section-heading-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.section-heading-row .timeline-heading { margin-bottom: 0; }
+.see-all-link--inline { margin-top: 0; }
+
+.home-about { margin: 4rem 0; }
+.home-about-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 2.5rem;
+  align-items: start;
+}
+.home-about-copy p { color: var(--text-dim); margin: 0 0 1rem; }
+.home-about-copy p:last-child { margin-bottom: 0; }
+.timeline-list--compact .timeline-body p {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin-top: 0.2rem;
+}
+
+.home-highlights { margin: 4rem 0; }
+.home-highlights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+}
+.home-highlight-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+.home-highlight-card .timeline-date {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-bottom: 0.4rem;
+}
+.home-highlight-card h3 { margin: 0 0 0.4rem; font-size: 1.02rem; }
+.home-highlight-card p { margin: 0; color: var(--text-dim); font-size: 0.9rem; }
+.home-highlight-card--cert { border-color: var(--accent-dim); }
+
+.home-cta {
+  margin: 4rem 0 2rem;
+  padding: 2.5rem 2rem;
+  text-align: center;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.home-cta h2 { margin: 0 0 0.6rem; }
+.home-cta p { color: var(--text-dim); margin: 0 auto 1.25rem; max-width: 50ch; }
+
+@media (max-width: 800px) {
+  .home-about-grid { grid-template-columns: 1fr; }
+}
+

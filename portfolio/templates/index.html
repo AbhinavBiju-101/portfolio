@@ -9,7 +9,7 @@
   <a class="hero-cta" href="{{ url_for('projects') }}">See the projects &rarr;</a>
 </section>
 
-<section class="stats-strip reveal">
+<section class="stats-strip">
   <div class="stat-tile">
     <span class="stat-number">{{ stats.years_coding }}</span>
     <span class="stat-label">Years coding</span>
@@ -37,11 +37,8 @@
 </section>
 
 {% if featured_projects %}
-<section class="featured-projects reveal">
-  <div class="section-heading-row">
-    <h2 class="timeline-heading">Featured Projects</h2>
-    <a class="see-all-link see-all-link--inline" href="{{ url_for('projects') }}">See all projects &rarr;</a>
-  </div>
+<section class="featured-projects">
+  <h2 class="timeline-heading">Featured Projects</h2>
   <div class="project-grid">
     {% for project in featured_projects %}
     <article class="project-card">
@@ -63,85 +60,7 @@
     </article>
     {% endfor %}
   </div>
+  <a class="see-all-link" href="{{ url_for('projects') }}">See all projects &rarr;</a>
 </section>
 {% endif %}
-
-<section class="home-about reveal">
-  <div class="section-heading-row">
-    <h2 class="timeline-heading">About</h2>
-    <a class="see-all-link see-all-link--inline" href="{{ url_for('about') }}">Full story &rarr;</a>
-  </div>
-  <div class="home-about-grid">
-    <div class="home-about-copy">
-      <p>
-        Aspiring software engineer, first-year B.Tech CSE @ VIT Chennai, and
-        online BS Data Science student @ IIT Madras. I'm passionate about
-        building interconnected, broad systems — and lately, designing
-        neural networks and optimizing them with evolutionary algorithms.
-      </p>
-      <p>
-        Most of what I've built started with almost nothing — a notes app,
-        a calculator, no formal dev tools, no mentorship, no infrastructure
-        — and got built anyway because the problem itself was interesting
-        enough to keep pulling me back in.
-      </p>
-    </div>
-    <ol class="timeline-list timeline-list--compact">
-      <li class="timeline-item">
-        <span class="timeline-date">2024 — Present</span>
-        <div class="timeline-body">
-          <h3>Java, and building for real</h3>
-          <p>Deployment-ready software, distributed systems, and games like Grimoire: Legacy.</p>
-        </div>
-      </li>
-      <li class="timeline-item">
-        <span class="timeline-date">2026</span>
-        <div class="timeline-body">
-          <h3>VIT Chennai &amp; IIT Madras</h3>
-          <p>B.Tech CSE, alongside an online BS in Data Science.</p>
-        </div>
-      </li>
-      <li class="timeline-item">
-        <span class="timeline-date">5th Grade</span>
-        <div class="timeline-body">
-          <h3>Where it started — Scratch</h3>
-          <p>First lines of "code" were dragging blocks together on Scratch.mit.</p>
-        </div>
-      </li>
-    </ol>
-  </div>
-</section>
-
-{% if top_achievements or top_certifications %}
-<section class="home-highlights reveal">
-  <div class="section-heading-row">
-    <h2 class="timeline-heading">Achievements &amp; Certifications</h2>
-    <a class="see-all-link see-all-link--inline" href="{{ url_for('certifications') }}">See all &rarr;</a>
-  </div>
-  <div class="home-highlights-grid">
-    {% for item in top_achievements %}
-    <article class="home-highlight-card">
-      <span class="timeline-date">{{ item.date }}{% if item.category %} &middot; {{ item.category }}{% endif %}</span>
-      <h3>{{ item.title }}</h3>
-      {# Just the first paragraph as a teaser — the full multi-paragraph
-         writeup is what /certifications is for. #}
-      {{ item.description.split("\n\n")[0]|markdownify|safe }}
-    </article>
-    {% endfor %}
-    {% for cert in top_certifications %}
-    <article class="home-highlight-card home-highlight-card--cert">
-      <span class="timeline-date">{{ cert.date }}{% if cert.issuer %} &middot; {{ cert.issuer }}{% endif %}</span>
-      <h3>{{ cert.name }}</h3>
-      {% if cert.description %}<p>{{ cert.description }}</p>{% endif %}
-    </article>
-    {% endfor %}
-  </div>
-</section>
-{% endif %}
-
-<section class="home-cta reveal">
-  <h2>Want the full picture?</h2>
-  <p>Every project below is a real, downloadable build — most with a live in-browser preview, no install required.</p>
-  <a class="hero-cta" href="{{ url_for('projects') }}">Browse all projects &rarr;</a>
-</section>
 {% endblock %}

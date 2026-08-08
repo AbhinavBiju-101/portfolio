@@ -89,12 +89,22 @@ MINING_ITEM_INDEX = load_content_text("mining-simulator/item_index.txt")
 #                    once you've got more than a handful of projects, pin
 #                    your best ~10 and leave smaller/support ones (like
 #                    Chatroom) unpinned.
+# "created"      -> free-form date string, same granularity as certification
+#                    dates ("Aug 2021", "2024", "Mar 2025") — whatever you can
+#                    actually pin down. Shown on the detail page. Placeholder
+#                    values below — swap in the real ones by checking each
+#                    project's oldest commit / first working version.
+# "updated"      -> same format as "created". Placeholder values below —
+#                    swap in the real ones by checking each project's most
+#                    recent commit / latest release you actually shipped.
 PROJECTS = [
     {
         "slug": "grimoire-legacy",
         "pinned": True,
         "name": "Grimoire: Legacy",
         "tagline": "A turn-based spell combat simulator with 150+ unique spells and deep effect interactions.",
+        "created": "TBD",
+        "updated": "TBD",
         "description": (
             "**Grimoire: Legacy** started on paper and pen — duels tracked by "
             "hand, random numbers rolled on a calculator. Players pick 5 spells "
@@ -168,6 +178,46 @@ PROJECTS = [
                 ],
             },
             {
+                "title": "Notable classes",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "**`Row`** — the combat log's text layout engine, "
+                        "written from scratch with no external formatting "
+                        "library. Give it a column count and a width, and "
+                        "`addLeft()`/`addRight()` place a word without ever "
+                        "splitting it mid-word at a column boundary — if a "
+                        "column is already occupied, `Row` doesn't overwrite "
+                        "it; it links a fresh `Row` onto its own `sub` field "
+                        "and recurses into that instead, so a row silently "
+                        "grows as many lines tall as it needs. `Turn` owns "
+                        "one `Row` per turn and is what every `Effect` below "
+                        "actually writes its combat text into — it's not a "
+                        "demo class, it's the UI.\n\n"
+                        "**`Effect`** (abstract) — `AttackEffect`, "
+                        "`HealEffect`, `DefenceEffect`, `CritEffect`, "
+                        "`CapacitorEffect`, `MultiplierEffect`. Each `Effect` "
+                        "is its own singly-linked-list node (the `next` "
+                        "field lives directly on `Effect`, no separate node "
+                        "wrapper), and `Turn.addEffect()` walks the chain to "
+                        "insert by `priority` — buffs before attacks, "
+                        "attacks before defence resolves, and so on. The "
+                        "interesting part is effects don't just read that "
+                        "list, some rewrite it mid-resolution: `CritEffect` "
+                        "walks the current turn's chain looking for a "
+                        "matching `AttackEffect` from the same caster and "
+                        "multiplies its `value` by 1.5 in place — or, if "
+                        "that attack hasn't been queued yet this turn, "
+                        "defers itself onto *next* turn's chain and tries "
+                        "again. `CapacitorEffect` does something similar: "
+                        "it zeroes out every attack from its caster this "
+                        "turn, banks the total, and re-queues a smaller "
+                        "version of itself with `life-1` — until `life` "
+                        "hits 1, when it converts the whole banked total "
+                        "into one real `AttackEffect`."
+                    )},
+                ],
+            },
+            {
                 "title": "What I learned",
                 "blocks": [
                     {"type": "markdown", "content": (
@@ -211,6 +261,8 @@ PROJECTS = [
         "pinned": True,
         "name": "Mining Simulator",
         "tagline": "A text-based mining game — 35 minerals across 4 rarity variants each, with LCM-based weighted drop rates and persistent player accounts.",
+        "created": "TBD",
+        "updated": "TBD",
         "description": (
             "A console mining game with account login and an inventory "
             "system, built around a weighted-rarity drop table: **35 "
@@ -311,6 +363,8 @@ PROJECTS = [
         "pinned": True,
         "name": "Greed Island",
         "tagline": "An evolutionary simulation — 20 autonomous AI agents develop survival strategies through genetic inheritance over generations.",
+        "created": "TBD",
+        "updated": "TBD",
         "description": (
             "Twenty AI agents (\"Characters\"), each running as its own "
             "Java thread, are spawned into an environment with limited "
@@ -389,6 +443,56 @@ PROJECTS = [
                 ],
             },
             {
+                "title": "Notable classes",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "**`Character`** — the agent itself. Health, "
+                        "Hunger, and Energy are `AtomicInteger`, and Status "
+                        "flags (Poisoned, Sleeping, Hungry...) live in a "
+                        "`volatile HashMap` — the two techniques that let 20 "
+                        "of these run as independent threads, each reading "
+                        "and writing its own state, without a single "
+                        "`synchronized` block anywhere in the class. "
+                        "`Clone()` is where evolution actually happens: a "
+                        "child copies the parent's `Traits` map with a "
+                        "random mutation per trait, and that mutation's "
+                        "range deliberately shrinks the closer a trait sits "
+                        "to its cap — so traits converge instead of drifting "
+                        "off to the extremes forever. Each `Character` also "
+                        "owns a private `threadpool` of `Listener`s it "
+                        "starts on `spawn()` — one draining Hunger every "
+                        "simulated minute, one ticking Poison damage while "
+                        "that status is active — and can `stop()` cleanly "
+                        "when it dies.\n\n"
+                        "**`Listener<T>`** (abstract, `implements Runnable`) "
+                        "— a hand-rolled condition-driven scheduler, built "
+                        "before I knew `java.util.concurrent` had "
+                        "`ScheduledExecutorService` for exactly this. "
+                        "It pairs a watched object with a small "
+                        "hand-rolled `Comparison<T>` functional interface "
+                        "(a predicate, basically — `Predicate<T>` already "
+                        "existed in Java 8, I just didn't know about it "
+                        "yet), spins on `Thread.sleep(0)` until that "
+                        "condition is true, then fires `onCondition()`. "
+                        "`TickListener<T>` extends it into a repeating "
+                        "timer keyed off the simulation's own logical clock "
+                        "(`Greed_Island.time`, not wall time) rather than "
+                        "`Timer`/`schedule()` — and if the check loop falls "
+                        "behind by more than one interval, it fires "
+                        "`onCondition()` that many times in a row to catch "
+                        "up, so a laggy tick never quietly loses simulated "
+                        "time. `StateListener<T>` is the same idea without "
+                        "the catch-up, for once-per-interval state checks "
+                        "rather than accumulating ticks. If I rebuilt this "
+                        "today I'd reach for the real "
+                        "`ScheduledExecutorService` and skip the busy-wait "
+                        "spin loops entirely — but at the time, building "
+                        "the scheduler myself is what actually taught me "
+                        "what one needs to do."
+                    )},
+                ],
+            },
+            {
                 "title": "Evolution in action",
                 "blocks": [
                     {"type": "markdown", "content": (
@@ -445,6 +549,8 @@ PROJECTS = [
         "pinned": True,
         "name": "SkynetGrid",
         "tagline": "A remote lab-administration suite — deployed with school approval to a computer lab for remote screen viewing, input control, and terminal access.",
+        "created": "TBD",
+        "updated": "TBD",
         "description": (
             "A distributed remote-administration system, version 44 as of "
             "the last iteration, built to test real Java networking in a "
@@ -520,6 +626,8 @@ PROJECTS = [
         "pinned": False,  # smaller/support project — you mentioned this as the "not top-10" example
         "name": "Chatroom (v11)",
         "tagline": "A LAN chatroom with a Swing GUI client, multi-client server, file transfer, and emoji support — v11 of an iterated project.",
+        "created": "TBD",
+        "updated": "TBD",
         "description": (
             "A local-network chatroom: a multithreaded **ChatServer** "
             "accepts connections from multiple **ChatClient** instances, "

@@ -309,6 +309,15 @@ code {
 }
 
 /* --- Skill tags ----------------------------------------------------- */
+.project-dates {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+.project-dates-sep { opacity: 0.5; }
 .tag-row {
   display: flex;
   align-items: center;

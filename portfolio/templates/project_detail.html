@@ -49,6 +49,13 @@
     <h1>{{ project.name }}</h1>
     <p class="project-tagline">{{ project.tagline }}</p>
     {{ render_tags(project) }}
+    {% if project.created or project.updated %}
+    <p class="project-dates">
+      {% if project.created %}<span>Created: {{ project.created }}</span>{% endif %}
+      {% if project.created and project.updated %}<span class="project-dates-sep" aria-hidden="true">&middot;</span>{% endif %}
+      {% if project.updated %}<span>Last updated: {{ project.updated }}</span>{% endif %}
+    </p>
+    {% endif %}
   </div>
 
   <div class="detail-actions">

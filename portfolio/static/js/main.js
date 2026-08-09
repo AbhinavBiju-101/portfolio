@@ -28,7 +28,10 @@ document.addEventListener("DOMContentLoaded", () => {
           loadPyodidePreview(src, container);
           break;
         case "java-console":
-          loadJavaConsolePreview(slug, container, (session) => { activeSession = session; });
+          loadJavaConsolePreview(slug, container, (session) => { activeSession = session; }, "Java");
+          break;
+        case "python-console":
+          loadJavaConsolePreview(slug, container, (session) => { activeSession = session; }, "Python");
           break;
         case "cheerpj":
           loadCheerpJPreview(src, container, mainClass);
@@ -128,11 +131,13 @@ async function loadPyodidePreview(src, container) {
   }
 }
 
-// --- Java console apps, executed server-side (java -jar), streamed live --
-// The server spawns a real `java -jar` process per session and streams its
-// stdout over Server-Sent Events; keystrokes go back over a small POST
-// endpoint. See the /preview/<slug>/start, /preview/stream/<id>, and
-// /preview/input/<id> routes in app.py.
+// --- Console apps (Java or Python), executed server-side, streamed live --
+// The server spawns a real `java -jar` (or `python3 -u`) process per session
+// and streams its stdout over Server-Sent Events; keystrokes/lines go back
+// over a small POST endpoint. See the /preview/<slug>/start,
+// /preview/stream/<id>, and /preview/input/<id> routes in app.py. Shared by
+// both java-console and python-console — only the process command differs,
+// server-side.
 
 // Shared by loadJavaConsolePreview and loadNetworkSimPreview below: the
 // A-/A+ font-size toolbar (see the "Text zoom controls" module further
@@ -151,8 +156,8 @@ function consoleOutputMarkup() {
   `;
 }
 
-async function loadJavaConsolePreview(slug, container, onSession) {
-  container.innerHTML = '<p class="preview-status">Starting the Java process…</p>';
+async function loadJavaConsolePreview(slug, container, onSession, langLabel = "Java") {
+  container.innerHTML = `<p class="preview-status">Starting the ${langLabel} process…</p>`;
 
   try {
     const startRes = await fetch(`/preview/${slug}/start`, { method: "POST" });
@@ -239,7 +244,7 @@ async function loadJavaConsolePreview(slug, container, onSession) {
     input.focus();
     onSession({ sessionId: session_id, eventSource: source });
   } catch (err) {
-    container.innerHTML = `<p class="preview-status preview-error">Couldn't start the Java preview: ${escapeHtml(String(err))}</p>`;
+    container.innerHTML = `<p class="preview-status preview-error">Couldn't start the ${langLabel} preview: ${escapeHtml(String(err))}</p>`;
     showRestartPrompt(slug, container, onSession, "Try again");
   }
 }

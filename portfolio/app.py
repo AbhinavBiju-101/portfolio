@@ -9,6 +9,7 @@ import shutil
 import socket
 import threading
 import subprocess
+import sys
 import zipfile
 import markdown as md
 import requests
@@ -69,6 +70,12 @@ MINING_ITEM_INDEX = load_content_text("mining-simulator/item_index.txt")
 #                      "java-console" Java console/Scanner apps — runs
 #                                     server-side (java -jar), streamed live
 #                                     into a terminal-style modal
+#                      "python-console" Python console/input() apps — same
+#                                     idea as java-console (server-side
+#                                     process, streamed live into the same
+#                                     terminal-style modal, same
+#                                     start/stream/input/stop routes) but
+#                                     runs `python3 -u script.py` instead
 #                      "cheerpj"      Java Swing/AWT (GUI) apps, client-side
 #                      "gradle"       placeholder, not implemented yet
 #                      None           no preview
@@ -690,6 +697,340 @@ PROJECTS = [
             },
         ],
     },
+    {
+        "slug": "navigo",
+        "pinned": True,
+        "name": "Navigo",
+        "tagline": "A Python-built desktop browser (PyQt5 + QtWebEngine) with tabs, bookmarks, incognito windows, and a full right-click menu.",
+        "created": "TBD",
+        "updated": "TBD",
+        "description": (
+            "A Python based browser, developed with the help of PyQt5 libs "
+            "and documentation, added classic browser features such as "
+            "search bar, undo/redo/reload, bookmarks, history, windows and "
+            "private windows, right click menus, download options for "
+            "different file formats, video CODEC support, and many other "
+            "minor features.\n\n"
+            "It's built on `QWebEngineView` — Qt's Chromium wrapper — so "
+            "under the hood it's a real, modern rendering engine rather "
+            "than a from-scratch one; the actual browser behavior (tabs, "
+            "history, incognito, downloads, the context menu) is all "
+            "hand-built on top of it in `Navigo.py`."
+        ),
+        "download_file": "navigo.zip",
+        "languages": ["Python"],
+        "skills": ["User Interface Design"],
+        "runtime": None,
+        "sections": [
+            {
+                "title": "How it works",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "**Tabs & windows**\n"
+                        "- Each tab holds its own `CustomWebEngineView`; a `+` "
+                        "tab button and `Ctrl+T`/`Ctrl+W` add and close tabs, "
+                        "`Ctrl+Shift+T` reopens the last closed one\n"
+                        "- `Ctrl+N`-style \"Open new window\" spins up a whole "
+                        "second `MainWindow`; \"Open new incognito window\" "
+                        "does the same but with its own dark theme (toolbar, "
+                        "bookmark bar, and every popup menu re-colored so it's "
+                        "visually unmistakable from a normal window) and no "
+                        "shared history/bookmarks\n\n"
+                        "**Address bar**\n"
+                        "- `stripURL()` decides what you typed: a bare word "
+                        "becomes a Google search, anything with a recognized "
+                        "domain suffix (`.com`, `.io`, `.gov`, ...) becomes "
+                        "`https://www.<that>`, and `file://` paths are handled "
+                        "separately for local files\n"
+                        "- The dropdown suggestion list is generated live from "
+                        "matching entries in both bookmarks and browsing "
+                        "history, grouped under their own headers\n\n"
+                        "**Bookmarks & history**\n"
+                        "- The star button adds the current page as a "
+                        "toolbar bookmark button, each with its own right-click "
+                        "menu (rename, edit URL, delete)\n"
+                        "- `Ctrl+H` opens history; every visited URL is logged "
+                        "and feeds the address-bar suggestions above\n\n"
+                        "**Right-click menu & downloads**\n"
+                        "- Context menu adapts to what you clicked: hovering a "
+                        "link adds \"open in new tab/window/incognito window\", "
+                        "\"save link\", \"copy link address\"; right-clicking an "
+                        "image adds \"save image\", \"copy image\", \"copy image "
+                        "address\"; selected text adds \"copy\"/\"translate\"; "
+                        "there's also \"view page source\" always available\n"
+                        "- Downloads go through Qt's `downloadRequested` "
+                        "signal, prompting a native save-file dialog "
+                        "pre-filled with the right extension for whatever "
+                        "file type is being downloaded\n\n"
+                        "**Everything else**\n"
+                        "- Custom `AnimatedButton`/`AnimatedMenuButton` "
+                        "classes drive the toolbar's hover/click color "
+                        "transitions via `QPropertyAnimation`\n"
+                        "- Keyboard shortcuts cover reload (`Ctrl+R`), "
+                        "back/forward (`Alt+Left`/`Alt+Right`), zoom "
+                        "(`Ctrl+Shift+`/`-`), view-source (`Ctrl+Shift+I`), "
+                        "and jumping to the address bar (`Ctrl+E`)\n"
+                        "- QtWebEngine (Chromium) handles video codec support "
+                        "and playback natively — nothing bespoke needed there"
+                    )},
+                ],
+            },
+            {
+                "title": "Why no live preview",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "This is a full desktop GUI app — it opens native Qt "
+                        "windows and embeds an actual Chromium instance — so "
+                        "there's no sensible way to run it inside a browser "
+                        "tab on this site. Download the source and run "
+                        "`python Navigo.py` (with PyQt5 + PyQtWebEngine "
+                        "installed) to try it for real."
+                    )},
+                ],
+            },
+        ],
+    },
+    {
+        "slug": "exponential-spacebar",
+        "pinned": False,
+        "name": "Exponential Spacebar",
+        "tagline": "A terminal incrementer/clicker game — press spacebar to score, with accounts, a world record, and exponentially-formatted numbers.",
+        "created": "TBD",
+        "updated": "TBD",
+        "description": (
+            "A Replit-hosted terminal clicker game: press spacebar to add "
+            "to your score, with a boost that grows every 500 points, "
+            "persistent username/password accounts, a personal best, a "
+            "shared world record, and an experience/level system that "
+            "climbs passively as you play.\n\n"
+            "Scores grow large fast (the boost itself compounds), so it "
+            "leans on a custom `translate_number()` formatter that turns "
+            "raw numbers into readable exponent notation — 1,250,000 "
+            "reads as `1.25 Million`, all the way up to Vigintillion — "
+            "rather than ever printing a wall of digits."
+        ),
+        "download_file": "exponential-spacebar.zip",
+        "languages": ["Python"],
+        "skills": ["Game Design", "Algorithms", "Data Persistence"],
+        "runtime": "python-console",
+        "preview_entry": "main.py",
+        "sections": [
+            {
+                "title": "How it works",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "- Accounts are stored in Replit's hosted key-value "
+                        "store (`replit.db`) — username, password, highscore, "
+                        "and experience per user, plus one shared `\"World "
+                        "best\"` key everyone competes against\n"
+                        "- Sign-up enforces basic rules (`verify_username`, "
+                        "`verify_password`): 2-15 character usernames, and "
+                        "passwords needing at least one lowercase, one "
+                        "uppercase, and one digit\n"
+                        "- Spacebar/`x` input is read through raw key events "
+                        "via `sshkeyboard`'s `listen_keyboard`, not line-based "
+                        "`input()` — the game reacts the instant a key is "
+                        "pressed, no Enter needed\n"
+                        "- Every press recalculates the boost "
+                        "(`1 + score // 500`), updates experience by a fixed "
+                        "amount, checks it against a precomputed table of 501 "
+                        "exponentially-scaled level thresholds, and writes the "
+                        "new highscore/world-record back to `replit.db` if "
+                        "either was just beaten\n"
+                        "- ANSI color codes (`colors.py`) and a loading-screen "
+                        "animation (a random fake \"loading Assets... Enemies... "
+                        "Multipliers...\" sequence) round out the terminal "
+                        "presentation"
+                    )},
+                ],
+            },
+            {
+                "title": "About the live preview",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "The version above (and downloadable as the real "
+                        "source) depends on two Replit-only things: "
+                        "`replit.db` for storage and `sshkeyboard` for raw "
+                        "spacebar detection — neither exists outside a Repl. "
+                        "The **Preview** button here runs a lightly adapted "
+                        "build instead: `replit.db` swapped for a local dict "
+                        "behind the same interface, and spacebar detection "
+                        "swapped for reading a line of input (press **Enter** "
+                        "for a point, type **x** + Enter for the menu), since "
+                        "a browser-piped terminal can't hook raw keystrokes. "
+                        "The game logic itself — scoring, boosts, experience, "
+                        "number formatting — is untouched."
+                    )},
+                ],
+            },
+        ],
+    },
+    {
+        "slug": "visualcanvas",
+        "pinned": False,
+        "name": "VisualCanvas",
+        "tagline": "A Linux app with interactive editors for learning data structures, physics, and chemistry — one infinite pan/zoom canvas, four subjects.",
+        "created": "TBD",
+        "updated": "TBD",
+        "description": (
+            "A linux based app that has interactive ui for learning data "
+            "structures, physics, and chemistry.\n\n"
+            "It has a CS canvas for loading linked lists, stacks, ques, "
+            "heaps, trees, BSTs, arrays, graphs, with custom data values.\n\n"
+            "It has a molecule loader with prebuilt molecules and editor "
+            "tools.\n\n"
+            "It has a high res optimized physics engine that has "
+            "constraints, pulleys, springs, ropes, rods, and also supports "
+            "a large number of objects and use of gravitation laws.\n\n"
+            "It is an editor, and can save and load files of the format "
+            "`.vcanvas` and cause edits or save screenshots.\n\n"
+            "One single `CanvasPanel` (pan/zoom, dot-grid background) is "
+            "shared by all four subjects — each one just plugs in its own "
+            "renderer. Sessions are tabs, each with fully isolated state "
+            "(every structure, the molecule canvas, the physics world) and "
+            "its own undo/redo stack, so switching subjects or tabs never "
+            "loses work."
+        ),
+        "download_file": "visualcanvas.zip",
+        "languages": ["Java"],
+        "skills": ["Linux Application Development"],
+        "runtime": None,
+        "sections": [
+            {
+                "title": "Computer Science canvas",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "11 structures, each its own renderer behind a shared "
+                        "`DSRenderer` interface: singly/doubly linked list, "
+                        "stack, queue, deque, circular queue, binary tree, "
+                        "BST, max heap, min heap, and a directed/undirected, "
+                        "weighted/unweighted graph.\n\n"
+                        "- The graph renderer runs real **BFS/DFS**, stepped "
+                        "one frame at a time by a shared `AnimEngine` — nodes "
+                        "color-shift between *current* and *visited* as the "
+                        "traversal plays, with play/step/reset transport "
+                        "controls\n"
+                        "- The heap renderer draws the tree **and** the "
+                        "backing array side by side, so the `2i+1`/`2i+2` "
+                        "child relationship is visible at the same time as "
+                        "the tree shape\n"
+                        "- Every add/remove/clear pushes an `UndoableAction` "
+                        "(before/after snapshot + undo/redo closures) onto a "
+                        "per-session undo stack — Ctrl+Z/Ctrl+Y work "
+                        "everywhere, not just as an afterthought"
+                    )},
+                    {"type": "image", "src": "shot2.png", "caption": "Max heap rendered as a tree, with the backing array shown underneath"},
+                ],
+            },
+            {
+                "title": "Chemistry — molecule canvas",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "A real 2D molecule editor, not just a static "
+                        "diagram viewer:\n\n"
+                        "- Draw single/double/triple bonds, wedge/dash "
+                        "(stereochemistry), and skeletal bond-line style by "
+                        "picking a tool and dragging between atoms\n"
+                        "- **Formal charge recalculates automatically** "
+                        "whenever a bond is added, changed, or deleted "
+                        "(`recalcCharges`), and lone pairs are drawn from "
+                        "each atom's actual valence — this isn't decorative, "
+                        "it tracks real bonding rules\n"
+                        "- A prebuilt-molecule library (`H2O`, `NH3`, `CH4`, "
+                        "`CO2`, benzene, phenol, aniline, and more) drops in "
+                        "a fully-bonded structure in one click, ready to "
+                        "extend or edit\n"
+                        "- Reaction arrows and curved (mechanism) arrows are "
+                        "drawn as a separate right-drag tool — enough to lay "
+                        "out a full reaction mechanism with lone-pair-pushing "
+                        "arrows, not just a single molecule"
+                    )},
+                    {"type": "image", "src": "shot1.png", "caption": "A curved-arrow reaction mechanism between water and ammonia, drawn on the molecule canvas"},
+                ],
+            },
+            {
+                "title": "Physics engine",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "A genuine constraint-based simulation, not a "
+                        "particle-effect approximation:\n\n"
+                        "- **Verlet integration** with sub-stepping for "
+                        "stability, gravity, and per-surface friction/"
+                        "restitution\n"
+                        "- Objects: mass blocks, mass cylinders, pulleys, "
+                        "wedges, and fixed wall anchors\n"
+                        "- Connectors: springs (Hooke's law, configurable "
+                        "`k`, break past 10× rest length), ropes/strings "
+                        "(inextensible once taut, can carry distributed mass), "
+                        "and rigid rods\n"
+                        "- **Pulley systems** are modeled properly — an "
+                        "Atwood-style rope over a pulley keeps "
+                        "`lenA + lenB = totalLength` rather than treating "
+                        "each side as an independent spring\n"
+                        "- Every object/connector edit (add, delete, set "
+                        "spring `k`, set rope mass, build a pulley system) is "
+                        "undo-tracked the same way the CS structures are\n"
+                        "- Handles many simultaneous interconnected objects "
+                        "without the simulation falling apart — see the "
+                        "stress-test screenshot below"
+                    )},
+                    {"type": "image", "src": "shot3.png", "caption": "Spring-mass systems with labeled spring constants and rest lengths, mid-simulation"},
+                    {"type": "image", "src": "shot4.png", "caption": "A dense mesh of a dozen interconnected mass blocks and springs, stress-testing the physics engine"},
+                ],
+            },
+            {
+                "title": "Mathematics (found in code, not in the original notes)",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "A fourth folder beyond the three described above: "
+                        "Venn diagrams (arbitrary set count, comma-separated "
+                        "multi-set intersections), probability distribution "
+                        "plotting (Normal/Binomial/Poisson), and binomial "
+                        "expansion for several forms of `(a±b)^n`."
+                    )},
+                ],
+            },
+            {
+                "title": "Everything else",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "- **Save/load**: the whole session — every CS "
+                        "structure, the molecule canvas, all three math "
+                        "tools, the physics world — serializes to a single "
+                        "plain-text `.vcanvas` file and back\n"
+                        "- **SVG export**: uses Apache Batik if it's on the "
+                        "classpath for true vector SVG, and falls back to a "
+                        "PNG embedded in an SVG wrapper if it isn't, via "
+                        "reflection so the app doesn't hard-depend on Batik "
+                        "being present\n"
+                        "- **Linux integration**: on first run, registers "
+                        "itself as a desktop app and as the default handler "
+                        "for `.vcanvas` files (`.desktop` entry + MIME type "
+                        "+ icon, via `xdg-mime`/`update-desktop-database`), "
+                        "so double-clicking a `.vcanvas` file opens it "
+                        "directly\n"
+                        "- A collapsed-by-default sidebar that expands on "
+                        "hover, and tabs with their own right-click "
+                        "rename/save/close menu"
+                    )},
+                ],
+            },
+            {
+                "title": "Why no live preview",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "This is a full desktop Swing app, the same reason "
+                        "Navigo doesn't have one — there's no sensible way "
+                        "to run a windowed GUI app inside a browser tab on "
+                        "this site. Download the source and run "
+                        "`javac VisualCanvas.java && java VisualCanvas` "
+                        "(JDK 8+) to try it directly. The screenshots above "
+                        "are real exports/captures from the app, not staged."
+                    )},
+                ],
+            },
+        ],
+    },
 ]
 
 DOWNLOAD_DIR = os.path.join(app.root_path, "static", "downloads")
@@ -1158,10 +1499,11 @@ def download(slug):
     abort(404)
 
 
-# --- Java console preview: server-executed, streamed live to the browser ---
-# NOTE: this spawns a real `java` process per visitor session. Fine for local
-# testing; before deploying publicly, add rate limiting, a hard cap on
-# concurrent sessions, and a timeout that kills idle processes.
+# --- Console preview (java-console / python-console): server-executed, ---
+# --- streamed live to the browser ------------------------------------------
+# NOTE: this spawns a real `java` or `python3` process per visitor session.
+# Fine for local testing; before deploying publicly, add rate limiting, a
+# hard cap on concurrent sessions, and a timeout that kills idle processes.
 PREVIEW_SESSIONS = {}
 SESSIONS_LOCK = threading.Lock()
 MAX_SESSIONS = 5
@@ -1283,7 +1625,8 @@ def _flusher_thread(is_alive, q, buf, buf_lock):
 @app.route("/preview/<slug>/start", methods=["POST"])
 def preview_start(slug):
     project = get_project(slug)
-    if project is None or project.get("runtime") != "java-console":
+    runtime = project.get("runtime") if project else None
+    if project is None or runtime not in ("java-console", "python-console"):
         abort(404)
 
     with SESSIONS_LOCK:
@@ -1294,30 +1637,35 @@ def preview_start(slug):
         if len(PREVIEW_SESSIONS) >= MAX_SESSIONS:
             return jsonify({"error": "Too many active previews right now — try again shortly."}), 503
 
-    jar_path = os.path.join(app.root_path, "static", "previews", project["slug"], project["preview_entry"])
-    if not os.path.isfile(jar_path):
-        return jsonify({"error": f"Preview jar not found at static/previews/{project['slug']}/{project['preview_entry']}."}), 500
+    entry_path = os.path.join(app.root_path, "static", "previews", project["slug"], project["preview_entry"])
+    if not os.path.isfile(entry_path):
+        return jsonify({"error": f"Preview entry not found at static/previews/{project['slug']}/{project['preview_entry']}."}), 500
 
-    if shutil.which("java") is None:
-        return jsonify({
-            "error": "Java isn't installed (or isn't on PATH) on this machine. "
-                     "This preview runs the game server-side with `java -jar`, so "
-                     "a JDK/JRE needs to be installed wherever Flask is running — "
-                     "install one (e.g. from adoptium.net) and try again."
-        }), 500
+    if runtime == "java-console":
+        if shutil.which("java") is None:
+            return jsonify({
+                "error": "Java isn't installed (or isn't on PATH) on this machine. "
+                         "This preview runs the game server-side with `java -jar`, so "
+                         "a JDK/JRE needs to be installed wherever Flask is running — "
+                         "install one (e.g. from adoptium.net) and try again."
+            }), 500
+        cmd = ["java", "-jar", entry_path]
+    else:  # python-console
+        cmd = [sys.executable or "python3", "-u", entry_path]
 
     try:
         proc = subprocess.Popen(
-            ["java", "-jar", jar_path],
+            cmd,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
-            cwd=os.path.dirname(jar_path),
+            cwd=os.path.dirname(entry_path),
         )
     except Exception as e:
-        return jsonify({"error": f"Couldn't start the Java process: {e}"}), 500
+        kind = "Java" if runtime == "java-console" else "Python"
+        return jsonify({"error": f"Couldn't start the {kind} process: {e}"}), 500
 
     q = queue.Queue()
     session_id = uuid.uuid4().hex

@@ -1,26 +1,29 @@
 {% extends "base.html" %}
 {% block title %}About — Abhinav Biju{% endblock %}
 {% block content %}
-<section class="page-head">
-  <h1>About</h1>
-  <p>
-    Aspiring software engineer, first-year B.Tech CSE @ VIT Chennai, and
-    online BS Data Science student @ IIT Madras. I'm passionate about
-    building interconnected, broad systems — and lately, designing neural
-    networks and optimizing them with evolutionary algorithms.
-  </p>
-  <p>
-    Most of what I've built started with almost nothing — a notes app, a
-    calculator, no formal dev tools, no mentorship, no infrastructure —
-    and got built anyway because the problem itself was interesting enough
-    to keep pulling me back in.
-  </p>
-  <p>
-    I haven't set up an official GitHub workflow yet, but here's a
-    <a href="https://github.com/FTHZS" target="_blank" rel="noopener">temporary project dump</a>
-    while I get there, plus my
-    <a href="https://www.linkedin.com/in/i-am-abhinav-biju/" target="_blank" rel="noopener">LinkedIn</a>.
-  </p>
+<section class="page-head about-head">
+  <img class="about-photo" src="{{ url_for('static', filename='images/about/profile.jpg') }}" alt="Portrait of Abhinav Biju">
+  <div class="about-head-text">
+    <h1>About</h1>
+    <p>
+      Aspiring software engineer, first-year B.Tech CSE @ VIT Chennai, and
+      online BS Data Science student @ IIT Madras. I'm passionate about
+      building interconnected, broad systems — and lately, designing neural
+      networks and optimizing them with evolutionary algorithms.
+    </p>
+    <p>
+      Most of what I've built started with almost nothing — a notes app, a
+      calculator, no formal dev tools, no mentorship, no infrastructure —
+      and got built anyway because the problem itself was interesting enough
+      to keep pulling me back in.
+    </p>
+    <p>
+      I haven't set up an official GitHub workflow yet, but here's a
+      <a href="https://github.com/FTHZS" target="_blank" rel="noopener">temporary project dump</a>
+      while I get there, plus my
+      <a href="https://www.linkedin.com/in/i-am-abhinav-biju/" target="_blank" rel="noopener">LinkedIn</a>.
+    </p>
+  </div>
 </section>
 
 <section class="philosophy">

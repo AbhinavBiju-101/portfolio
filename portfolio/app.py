@@ -719,7 +719,7 @@ PROJECTS = [
         ),
         "download_file": "navigo.zip",
         "languages": ["Python"],
-        "skills": ["User Interface Design"],
+        "skills": ["User Interface Design", "Event-Driven Programming", "Networking"],
         "runtime": None,
         "sections": [
             {
@@ -758,10 +758,10 @@ PROJECTS = [
                         "image adds \"save image\", \"copy image\", \"copy image "
                         "address\"; selected text adds \"copy\"/\"translate\"; "
                         "there's also \"view page source\" always available\n"
-                        "- Downloads go through Qt's `downloadRequested` "
-                        "signal, prompting a native save-file dialog "
-                        "pre-filled with the right extension for whatever "
-                        "file type is being downloaded\n\n"
+                        "- Downloads go through a real `QNetworkAccessManager` "
+                        "plus Qt's `downloadRequested` signal, prompting a "
+                        "native save-file dialog pre-filled with the right "
+                        "extension for whatever file type is being downloaded\n\n"
                         "**Everything else**\n"
                         "- Custom `AnimatedButton`/`AnimatedMenuButton` "
                         "classes drive the toolbar's hover/click color "
@@ -772,6 +772,38 @@ PROJECTS = [
                         "and jumping to the address bar (`Ctrl+E`)\n"
                         "- QtWebEngine (Chromium) handles video codec support "
                         "and playback natively — nothing bespoke needed there"
+                    )},
+                ],
+            },
+            {
+                "title": "What's actually non-trivial here",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "It's easy to wrap `QWebEngineView` in a window and "
+                        "call it a browser — the harder, less-obvious parts "
+                        "of *this* one:\n\n"
+                        "- **Incognito isn't a flag.** A lot of hobby "
+                        "PyQt browsers implement \"private mode\" as a boolean "
+                        "that just skips writing to history. Here it's a "
+                        "genuinely separate visual identity — its own color "
+                        "constants threaded through the toolbar, bookmark "
+                        "bar, and every popup/context menu — plus a fully "
+                        "separate `MainWindow` instance with no shared state, "
+                        "so there's no path for a private tab's data to leak "
+                        "into the normal one\n"
+                        "- **The context menu is built per click, not once.** "
+                        "`contextMenuEvent` inspects what's actually under "
+                        "the cursor (`QWebEngineContextMenuData`) and "
+                        "assembles a different `QMenu` for a link vs. an "
+                        "image vs. selected text vs. plain page — closer to "
+                        "how a real browser's menu behaves than a single "
+                        "static right-click menu would be\n"
+                        "- **It's one hand-written file, not a framework.** "
+                        "~1,200 lines implementing tabs, history, bookmarks, "
+                        "downloads, and a dynamic context menu directly on "
+                        "top of Qt's primitives — Chromium supplies the "
+                        "rendering engine, but none of the browser *chrome* "
+                        "or behavior comes prebuilt"
                     )},
                 ],
             },
@@ -811,7 +843,7 @@ PROJECTS = [
         ),
         "download_file": "exponential-spacebar.zip",
         "languages": ["Python"],
-        "skills": ["Game Design", "Algorithms", "Data Persistence"],
+        "skills": ["Game Design", "Algorithms", "Data Persistence", "Authentication"],
         "runtime": "python-console",
         "preview_entry": "main.py",
         "sections": [
@@ -841,6 +873,40 @@ PROJECTS = [
                         "animation (a random fake \"loading Assets... Enemies... "
                         "Multipliers...\" sequence) round out the terminal "
                         "presentation"
+                    )},
+                ],
+            },
+            {
+                "title": "What's actually non-trivial here",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "- **The number formatter is a real algorithm, not a "
+                        "lookup.** `translate_number()` splits a number's "
+                        "digits into groups of 3 by position, figures out how "
+                        "many full groups sit before the leading digits, and "
+                        "maps that count to the right scale name — Thousand "
+                        "up through Vigintillion (10^63) — while still "
+                        "keeping up to 3 decimal digits of precision on the "
+                        "leading group. It's the kind of formatting most "
+                        "people would reach for a library to do\n"
+                        "- **Input handling is genuinely event-driven, not "
+                        "polled.** `sshkeyboard.listen_keyboard` hooks raw "
+                        "key-down events rather than blocking on `input()`, "
+                        "so the score updates the instant spacebar is "
+                        "pressed — closer to how a real game reads input than "
+                        "a typical terminal-menu script\n"
+                        "- **Validation without regex.** Username/password "
+                        "rules are checked by testing character-set "
+                        "intersections (`any(... for word in set(alphabet))`) "
+                        "rather than a regex — an unconventional but "
+                        "deliberate choice that reads a bit differently from "
+                        "the usual `re.match` approach\n"
+                        "- One honest detail from the source: a `#hax` "
+                        "comment sits next to `if random.randint(0, 00) == "
+                        "0:` — a condition that's always true, used as a "
+                        "shortcut to reload the stored highscore on start. "
+                        "Left in on purpose below, not cleaned up for this "
+                        "writeup."
                     )},
                 ],
             },
@@ -893,9 +959,51 @@ PROJECTS = [
         ),
         "download_file": "visualcanvas.zip",
         "languages": ["Java"],
-        "skills": ["Linux Application Development"],
+        "skills": ["Linux Application Development", "Swing GUI", "2D Graphics & Rendering", "Physics Simulation", "OOP Design"],
         "runtime": None,
         "sections": [
+            {
+                "title": "What makes this one stand out",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "This is really four separate simulation engines — "
+                        "graph traversal, chemical bonding, Verlet physics, "
+                        "and probability/set math — sharing one architecture "
+                        "instead of four separate apps glued together:\n\n"
+                        "- **One interface, four domains.** Every renderer "
+                        "(a linked list, a molecule, a physics world, a Venn "
+                        "diagram) implements the same `DSRenderer` interface "
+                        "(`draw`, `add`, `clear`, `saveTo`/`loadLine`, "
+                        "animation hooks). The `CanvasPanel` that handles "
+                        "pan/zoom/drag/mouse-wheel doesn't know or care which "
+                        "kind of renderer is currently plugged in — that's "
+                        "what lets one canvas serve chemistry, physics, CS, "
+                        "and math without four separate canvases\n"
+                        "- **Undo/redo is a first-class citizen everywhere, "
+                        "not just for text.** Adding a heap node, drawing a "
+                        "bond, and setting a spring constant all push the "
+                        "same `UndoableAction` (closures for undo + redo) "
+                        "onto a per-session stack. Most student projects that "
+                        "implement undo do it for one thing, in one place — "
+                        "here it's a general mechanism used identically "
+                        "across four unrelated domains\n"
+                        "- **The physics and chemistry aren't cosmetic.** "
+                        "Bond order changes trigger real formal-charge "
+                        "recalculation; the physics engine does actual "
+                        "Verlet integration with break-thresholds on springs "
+                        "and proper Atwood-style pulley constraints, not a "
+                        "hand-waved animation loop. Both hold up under "
+                        "actual sustained interaction, not just a single "
+                        "static screenshot\n"
+                        "- **~3,500 lines, one file, no external UI "
+                        "framework** — pure `javax.swing`/`java.awt.Graphics2D`, "
+                        "hand-drawn shapes and layout throughout, plus "
+                        "reflection-gated Apache Batik integration for SVG "
+                        "export that degrades gracefully when Batik isn't "
+                        "on the classpath"
+                    )},
+                ],
+            },
             {
                 "title": "Computer Science canvas",
                 "blocks": [

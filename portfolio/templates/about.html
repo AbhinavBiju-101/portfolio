@@ -22,9 +22,16 @@
       <a href="https://github.com/FTHZS" target="_blank" rel="noopener">temporary project dump</a>
       while I get there, plus my
       <a href="https://www.linkedin.com/in/i-am-abhinav-biju/" target="_blank" rel="noopener">LinkedIn</a>.
+      The 8 case studies on this site are the polished, deployment-ready
+      ones — the GitHub dump has 50+ smaller experiments and early work
+      behind them.
     </p>
   </div>
 </section>
+
+<blockquote class="pull-quote">
+  "I don't just learn to code. I code to learn."
+</blockquote>
 
 <section class="philosophy">
   <h2 class="timeline-heading">How I build</h2>
@@ -44,6 +51,18 @@
     pulling me back in — I was reaching for distributed systems before I
     had the formal vocabulary for what I was reaching for.
   </p>
+  <p>
+    Ideas carry over between projects more often than they start fresh.
+    A weighted random-selection system I built for a text-based mining
+    game — call it a rarity pool — turned out to be the same shape of
+    problem as probabilistic decision-making for autonomous agents, so it
+    became the seed for how <a href="{{ url_for('project_detail', slug='greed-island') }}">Greed Island</a>'s
+    characters choose what to do next. Likewise, an expression parser
+    written to power a calculator grew into a full tokenizer → parser →
+    symbol-table → evaluator pipeline — a small compiler — once I wanted
+    to know what was actually happening underneath "the calculator just
+    works."
+  </p>
 </section>
 
 <section class="timeline">
@@ -53,7 +72,7 @@
       <span class="timeline-date">2024 — Present</span>
       <div class="timeline-body">
         <h3>Java, and building for real</h3>
-        <p>Picked up Java in 10th grade and have been building with it since — including deployment-ready software, distributed systems, and games like Grimoire: Legacy.</p>
+        <p>Picked up Java in 10th grade and have been building with it since — deployment-ready software, distributed systems, games like Grimoire: Legacy, and a small compiler (tokenizer, parser, symbol table, expression evaluator) built from scratch to understand language design at a fundamental level.</p>
       </div>
     </li>
     <li class="timeline-item">
@@ -74,21 +93,21 @@
       <span class="timeline-date">7th — 10th Grade</span>
       <div class="timeline-body">
         <h3>Three years of Python</h3>
-        <p>Spent three years writing Python before moving deeper into Java.</p>
+        <p>Spent three years writing Python before moving deeper into Java — a browser (<a href="{{ url_for('project_detail', slug='navigo') }}">Navigo</a>), games, a Discord bot, and 50-odd smaller experiments along the way.</p>
       </div>
     </li>
     <li class="timeline-item">
       <span class="timeline-date">Earlier</span>
       <div class="timeline-body">
         <h3>Three years scripting in LUA</h3>
-        <p>Learned to script and build small systems in LUA before picking up Python.</p>
+        <p>Learned to script and build small systems in LUA — mostly Roblox games, picked up from reading docs rather than tutorials — before moving to Python.</p>
       </div>
     </li>
     <li class="timeline-item">
       <span class="timeline-date">5th Grade</span>
       <div class="timeline-body">
         <h3>Where it started — Scratch</h3>
-        <p>First lines of "code" were dragging blocks together on Scratch.mit.</p>
+        <p>First lines of "code" were dragging blocks together on Scratch.mit — which eventually stretched to a 3D wireframe engine running at 30 FPS and a gravity/blackhole simulator, both built entirely out of Scratch's block system.</p>
       </div>
     </li>
   </ol>

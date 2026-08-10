@@ -167,6 +167,12 @@ code {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+.stats-caption {
+  margin: -2rem 0 3rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  text-align: center;
+}
 
 /* --- Homepage featured projects --------------------------------------- */
 .featured-projects { margin-bottom: 3rem; }
@@ -227,6 +233,17 @@ code {
     gap: 1rem;
   }
   .about-photo { width: 104px; height: 104px; }
+}
+
+/* --- Pull quote (About page) -------------------------------------------- */
+.pull-quote {
+  margin: 2rem 0 2.5rem;
+  padding: 0 0 0 1.25rem;
+  border-left: 3px solid var(--accent);
+  font-size: 1.3rem;
+  font-style: italic;
+  color: var(--text);
+  line-height: 1.5;
 }
 
 /* --- Search bar (Projects / Skills) -------------------------------------- */

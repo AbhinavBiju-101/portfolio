@@ -43,5 +43,6 @@
   <script src="{{ url_for('static', filename='js/mouse-glow.js') }}"></script>
   <script src="{{ url_for('static', filename='js/audio.js') }}"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

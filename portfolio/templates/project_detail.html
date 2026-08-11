@@ -115,18 +115,38 @@
   </section>
   {% endfor %}
 
-  {% set file_tree = project_file_tree(project) %}
-  {% if file_tree %}
+  {% set file_tree_json = project_file_tree(project) %}
+  {% if file_tree_json %}
   <section class="content-section">
     <h2 class="content-section-title">Files</h2>
     <figure class="content-text-block">
-      <div class="text-block-toolbar">
-        <button type="button" class="text-zoom-btn" data-zoom="out" aria-label="Decrease text size">A&minus;</button>
-        <span class="text-zoom-readout" aria-live="polite"></span>
-        <button type="button" class="text-zoom-btn" data-zoom="in" aria-label="Increase text size">A+</button>
+      <div class="explorer" data-explorer data-slug="{{ project.slug }}" data-tree="{{ file_tree_json }}">
+        <div class="explorer-toolbar">
+          <div class="explorer-toolbar-tree" data-explorer-toolbar-tree>
+            <button type="button" class="explorer-btn" data-explorer-action="expand-all">Expand all</button>
+            <button type="button" class="explorer-btn" data-explorer-action="collapse-all">Collapse all</button>
+          </div>
+          <div class="explorer-toolbar-source" data-explorer-toolbar-source hidden>
+            <button type="button" class="explorer-btn explorer-back-btn" data-explorer-action="back">&larr; Back to tree</button>
+            <span class="explorer-file-path" data-explorer-file-path></span>
+          </div>
+          <div class="explorer-zoom">
+            <button type="button" class="text-zoom-btn" data-zoom="out" aria-label="Decrease text size">A&minus;</button>
+            <span class="text-zoom-readout" aria-live="polite"></span>
+            <button type="button" class="text-zoom-btn" data-zoom="in" aria-label="Increase text size">A+</button>
+          </div>
+        </div>
+        <div class="explorer-frame">
+          <div class="explorer-tree-pane" data-explorer-tree-pane>
+            <div class="explorer-tree" data-explorer-tree role="tree"></div>
+          </div>
+          <div class="explorer-source-pane" data-explorer-source-pane hidden>
+            <div class="explorer-source-status" data-explorer-source-status hidden></div>
+            <pre class="scrollable-text text-zoom-target explorer-source-code" data-explorer-source-code hidden></pre>
+          </div>
+        </div>
       </div>
-      <pre class="scrollable-text text-zoom-target file-tree">{{ file_tree }}</pre>
-      <figcaption>Everything that ships in the download — source and resources, {{ 'straight from the GitHub repo' if project.github else 'read out of the zip' }}.</figcaption>
+      <figcaption>Everything that ships in the download — click a folder to open or close it, click a file to view its source, {{ 'straight from the GitHub repo' if project.github else 'read out of the zip' }}.</figcaption>
     </figure>
   </section>
   {% endif %}
@@ -144,4 +164,8 @@
   </div>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/explorer.js') }}"></script>
 {% endblock %}

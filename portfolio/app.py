@@ -1027,7 +1027,7 @@ PROJECTS = [
                         "per-session undo stack — Ctrl+Z/Ctrl+Y work "
                         "everywhere, not just as an afterthought"
                     )},
-                    {"type": "image", "src": "shot2A.png", "caption": "Max heap rendered as a tree, with the backing array shown underneath"},
+                    {"type": "image", "src": "shotA2.png", "caption": "Max heap rendered as a tree, with the backing array shown underneath"},
                 ],
             },
             {
@@ -1053,7 +1053,7 @@ PROJECTS = [
                         "out a full reaction mechanism with lone-pair-pushing "
                         "arrows, not just a single molecule"
                     )},
-                    {"type": "image", "src": "shot1A.png", "caption": "A curved-arrow reaction mechanism between water and ammonia, drawn on the molecule canvas"},
+                    {"type": "image", "src": "shotA1.png", "caption": "A curved-arrow reaction mechanism between water and ammonia, drawn on the molecule canvas"},
                 ],
             },
             {
@@ -1082,8 +1082,8 @@ PROJECTS = [
                         "without the simulation falling apart — see the "
                         "stress-test screenshot below"
                     )},
-                    {"type": "image", "src": "shot3A.png", "caption": "Spring-mass systems with labeled spring constants and rest lengths, mid-simulation"},
-                    {"type": "image", "src": "shot4A.png", "caption": "A dense mesh of a dozen interconnected mass blocks and springs, stress-testing the physics engine"},
+                    {"type": "image", "src": "shotA3.png", "caption": "Spring-mass systems with labeled spring constants and rest lengths, mid-simulation"},
+                    {"type": "image", "src": "shotA4.png", "caption": "A dense mesh of a dozen interconnected mass blocks and springs, stress-testing the physics engine"},
                 ],
             },
             {
@@ -1829,15 +1829,47 @@ def _render_tree_lines(node, prefix=""):
     return lines
 
 
-def build_project_file_tree_text(project):
-    """Returns an ASCII directory-tree string of a project's source +
-    resources, or None if it can't be built (network/zip issue)."""
+def _nested_dict_to_json_tree(node, path_prefix=""):
+    """Turns the {"__files__": [...], "subdir": {...}} shape from
+    _build_tree_dict into a list of plain dicts the tree-explorer widget on
+    the front end can walk without knowing about the Python-side shape:
+    [{"type": "dir", "name": ..., "path": ..., "children": [...]},
+     {"type": "file", "name": ..., "path": ..., "size": ...}, ...]
+    Dirs first (alphabetical), then files (alphabetical) — same ordering
+    the old ASCII renderer used."""
+    dirs = sorted(k for k in node if k != "__files__")
+    files = sorted(node["__files__"], key=lambda t: t[0].lower())
+    out = []
+    for d in dirs:
+        child_path = f"{path_prefix}{d}/"
+        out.append({
+            "type": "dir",
+            "name": d,
+            "path": child_path,
+            "children": _nested_dict_to_json_tree(node[d], child_path),
+        })
+    for name, size in files:
+        out.append({
+            "type": "file",
+            "name": name,
+            "path": f"{path_prefix}{name}",
+            "size": size,
+        })
+    return out
+
+
+def build_project_file_tree_data(project):
+    """Returns {"root_label": str, "entries": [(path, size), ...],
+    "tree": <nested json tree, see _nested_dict_to_json_tree>} for a
+    project's source + resources, or None if it can't be built (network/zip
+    issue). Cached as a whole so the interactive explorer and the raw-source
+    endpoint below share one fetch."""
     slug = project["slug"]
     now = time.time()
     with FILE_TREE_LOCK:
         cached = FILE_TREE_CACHE.get(slug)
         if cached and (now - cached["fetched_at"] < FILE_TREE_TTL_SECONDS):
-            return cached["text"]
+            return cached["data"]
 
     try:
         if project.get("github"):
@@ -1853,22 +1885,103 @@ def build_project_file_tree_text(project):
         if not entries:
             return None
 
-        tree = _build_tree_dict(entries)
-        lines = [f"{root_label}/"] + _render_tree_lines(tree)
-        text = "\n".join(lines)
+        data = {
+            "root_label": root_label,
+            "entries": entries,
+            "tree": _nested_dict_to_json_tree(_build_tree_dict(entries)),
+        }
     except Exception:
         with FILE_TREE_LOCK:
             cached = FILE_TREE_CACHE.get(slug)
-        return cached["text"] if cached else None
+        return cached["data"] if cached else None
 
     with FILE_TREE_LOCK:
-        FILE_TREE_CACHE[slug] = {"text": text, "fetched_at": now}
-    return text
+        FILE_TREE_CACHE[slug] = {"data": data, "fetched_at": now}
+    return data
 
 
 @app.template_global("project_file_tree")
 def project_file_tree(project):
-    return build_project_file_tree_text(project)
+    """JSON string of the interactive tree for the explorer widget, or None."""
+    data = build_project_file_tree_data(project)
+    if data is None:
+        return None
+    return json.dumps({"root_label": data["root_label"], "tree": data["tree"]})
+
+
+# --- Source-code viewer (backs the tree explorer's click-a-file view) -----
+FILE_SOURCE_MAX_BYTES = 300_000
+
+_SOURCE_BINARY_EXTENSIONS = {
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bmp", ".jar", ".zip",
+    ".class", ".pdf", ".mp4", ".mp3", ".wav", ".ogg", ".ttf", ".otf", ".woff",
+    ".woff2", ".exe", ".dll", ".so", ".7z", ".gz", ".tar", ".jks", ".keystore",
+}
+
+
+def _looks_binary_path(path):
+    return os.path.splitext(path)[1].lower() in _SOURCE_BINARY_EXTENSIONS
+
+
+def _read_source_from_zip(zip_filename, path):
+    zpath = os.path.join(DOWNLOAD_DIR, zip_filename)
+    with zipfile.ZipFile(zpath) as z:
+        with z.open(path) as f:
+            return f.read(FILE_SOURCE_MAX_BYTES + 1)
+
+
+def _read_source_from_github(owner, repo, path):
+    branch = get_default_branch(owner, repo)
+    from urllib.parse import quote
+    r = requests.get(
+        f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{quote(path)}",
+        timeout=6,
+    )
+    r.raise_for_status()
+    return r.content[:FILE_SOURCE_MAX_BYTES + 1]
+
+
+@app.route("/projects/<slug>/source")
+def project_source(slug):
+    """Returns the text content of one file inside a project's download, for
+    the tree explorer's file-click view. Only paths that actually appear in
+    that project's (cached) file tree are served."""
+    project = get_project(slug)
+    if project is None:
+        abort(404)
+
+    path = (request.args.get("path") or "").strip("/")
+    if not path or ".." in path.split("/"):
+        return jsonify({"error": "Invalid path."}), 400
+
+    data = build_project_file_tree_data(project)
+    if data is None:
+        return jsonify({"error": "File list isn't available for this project right now."}), 500
+
+    valid_paths = {p for p, _ in data["entries"]}
+    if path not in valid_paths:
+        return jsonify({"error": "No such file in this project."}), 404
+
+    if _looks_binary_path(path):
+        return jsonify({"error": "This file type can't be previewed as text.", "binary": True}), 200
+
+    try:
+        if project.get("github"):
+            owner, repo = project["github"].split("/", 1)
+            raw = _read_source_from_github(owner, repo, path)
+        else:
+            raw = _read_source_from_zip(project["download_file"], path)
+    except Exception:
+        return jsonify({"error": "Couldn't fetch that file's contents."}), 500
+
+    truncated = len(raw) > FILE_SOURCE_MAX_BYTES
+    raw = raw[:FILE_SOURCE_MAX_BYTES]
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return jsonify({"error": "This file type can't be previewed as text.", "binary": True}), 200
+
+    return jsonify({"path": path, "content": text, "truncated": truncated})
 
 
 def get_default_branch(owner, repo):
@@ -1915,6 +2028,7 @@ def _parse_created(s):
 @app.route("/projects")
 def projects():
     pinned_only = request.args.get("filter") == "pinned"
+    preview_only = request.args.get("preview") == "1"
     sort = request.args.get("sort")
     if sort not in ("name", "created", "loc"):
         sort = None
@@ -1938,9 +2052,11 @@ def projects():
         sorted_projects = sorted(PROJECTS, key=lambda p: not p.get("pinned", False))
 
     shown = [p for p in sorted_projects if p.get("pinned")] if pinned_only else sorted_projects
+    if preview_only:
+        shown = [p for p in shown if p.get("runtime")]
     return render_template(
         "projects.html", active="projects", projects=shown, pinned_only=pinned_only,
-        sort=sort, loc_by_project=LOC_BY_PROJECT,
+        preview_only=preview_only, sort=sort, loc_by_project=LOC_BY_PROJECT,
     )
 
 

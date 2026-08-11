@@ -5,16 +5,22 @@
 <section class="page-head">
   <h1>Projects</h1>
   <p>Each one is set up to download and run locally.</p>
+  {% set f = 'pinned' if pinned_only else None %}
+  {% set pv = '1' if preview_only else None %}
   <div class="project-filter-toggle">
-    <a href="{{ url_for('projects') }}" class="{{ 'is-active' if not pinned_only }}">All</a>
-    <a href="{{ url_for('projects', filter='pinned') }}" class="{{ 'is-active' if pinned_only }}">Pinned only</a>
+    <a href="{{ url_for('projects', preview=pv) }}" class="{{ 'is-active' if not pinned_only }}">All</a>
+    <a href="{{ url_for('projects', filter='pinned', preview=pv) }}" class="{{ 'is-active' if pinned_only }}">Pinned only</a>
+  </div>
+  <div class="project-filter-toggle project-preview-toggle">
+    <a href="{{ url_for('projects', filter=f) }}" class="{{ 'is-active' if not preview_only }}">All</a>
+    <a href="{{ url_for('projects', filter=f, preview='1') }}" class="{{ 'is-active' if preview_only }}">Has preview</a>
   </div>
   <div class="project-filter-toggle project-sort-toggle">
     <span class="project-sort-label">Sort:</span>
-    <a href="{{ url_for('projects', filter='pinned' if pinned_only else None) }}" class="{{ 'is-active' if not sort }}">Pinned first</a>
-    <a href="{{ url_for('projects', filter='pinned' if pinned_only else None, sort='name') }}" class="{{ 'is-active' if sort == 'name' }}">Name</a>
-    <a href="{{ url_for('projects', filter='pinned' if pinned_only else None, sort='created') }}" class="{{ 'is-active' if sort == 'created' }}">Newest</a>
-    <a href="{{ url_for('projects', filter='pinned' if pinned_only else None, sort='loc') }}" class="{{ 'is-active' if sort == 'loc' }}">Lines of code</a>
+    <a href="{{ url_for('projects', filter=f, preview=pv) }}" class="{{ 'is-active' if not sort }}">Pinned first</a>
+    <a href="{{ url_for('projects', filter=f, preview=pv, sort='name') }}" class="{{ 'is-active' if sort == 'name' }}">Name</a>
+    <a href="{{ url_for('projects', filter=f, preview=pv, sort='created') }}" class="{{ 'is-active' if sort == 'created' }}">Newest</a>
+    <a href="{{ url_for('projects', filter=f, preview=pv, sort='loc') }}" class="{{ 'is-active' if sort == 'loc' }}">Lines of code</a>
   </div>
   <div class="search-bar">
     <input type="search" id="projects-search" class="search-input"
@@ -52,7 +58,11 @@
     </div>
   </article>
   {% else %}
-  {% if pinned_only %}
+  {% if pinned_only and preview_only %}
+  <p>No pinned projects with a live preview yet.</p>
+  {% elif preview_only %}
+  <p>No projects with a live preview yet — set <code>"runtime"</code> on a project in the <code>PROJECTS</code> list in <code>app.py</code>.</p>
+  {% elif pinned_only %}
   <p>No pinned projects yet — set <code>"pinned": True</code> on a few of your best in the <code>PROJECTS</code> list in <code>app.py</code>.</p>
   {% else %}
   <p>No projects yet — add some to the <code>PROJECTS</code> list in <code>app.py</code>.</p>

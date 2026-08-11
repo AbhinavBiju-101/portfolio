@@ -44,11 +44,34 @@ body {
   width: 280px;
   height: 280px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 70%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 70%);
   transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: -1;
-  will-change: transform;
+  will-change: transform, background;
+}
+
+/* --- Click disturbance ring ----------------------------------------------
+   A single small ring, spawned at the click point, that expands and fades
+   out quickly. Purely decorative (pointer-events: none) and self-removes
+   via animationend in mouse-glow.js. Skipped entirely when the person
+   prefers reduced motion (no ring is ever created in that case). */
+.click-disturbance {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  pointer-events: none;
+  z-index: 50;
+  animation: click-disturbance-pop 0.55s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+@keyframes click-disturbance-pop {
+  0% { transform: scale(0.4); opacity: 0.65; }
+  100% { transform: scale(4.2); opacity: 0; }
 }
 
 /* --- Ambient audio toggle ------------------------------------------------ */
@@ -1098,6 +1121,116 @@ code {
   color: var(--text-dim);
   font-size: 0.85rem;
   margin-top: 0.5rem;
+}
+
+/* --- Interactive file explorer (project detail "Files" section) --------- */
+.explorer {
+  background: #0c0d10;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.explorer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+.explorer-toolbar-tree,
+.explorer-toolbar-source {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.explorer-btn {
+  background: var(--bg);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.6rem;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.explorer-btn:hover { color: var(--text); border-color: var(--text-dim); }
+.explorer-btn:active { background: var(--bg-raised); }
+.explorer-back-btn { color: var(--accent); border-color: var(--accent-dim); }
+.explorer-back-btn:hover { color: var(--accent); border-color: var(--accent); }
+.explorer-file-path {
+  color: var(--text-dim);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.explorer-zoom { display: flex; align-items: center; gap: 0.4rem; margin-left: auto; }
+
+.explorer-frame { position: relative; }
+.explorer-tree-pane,
+.explorer-source-pane {
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.explorer-tree { padding: 0.4rem 0.3rem; }
+.explorer-list { list-style: none; margin: 0; padding: 0; }
+.explorer-item { margin: 0; }
+.explorer-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.82rem;
+  text-align: left;
+  padding: 0.22rem 0.5rem;
+  padding-left: calc(0.5rem + var(--explorer-depth, 0) * 1.1rem);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.explorer-row:hover { background: rgba(255, 157, 61, 0.08); }
+.explorer-row--file.is-active { background: rgba(255, 157, 61, 0.15); color: var(--accent); }
+.explorer-caret {
+  display: inline-block;
+  width: 0.8em;
+  flex-shrink: 0;
+  color: var(--text-dim);
+  font-size: 0.7em;
+}
+.explorer-caret--spacer { visibility: hidden; }
+.explorer-icon { flex-shrink: 0; font-size: 0.9em; }
+.explorer-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.explorer-source-pane { padding: 0; }
+.explorer-source-status {
+  padding: 1.1rem 1.25rem;
+  color: var(--text-dim);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.82rem;
+}
+.explorer-source-code.scrollable-text {
+  max-height: none;
+  border: none;
+  border-radius: 0;
+}
+
+@media (max-width: 600px) {
+  .explorer-tree-pane, .explorer-source-pane { max-height: 320px; }
+  .explorer-row { font-size: 0.72rem; }
+  .explorer-zoom { margin-left: 0; }
 }
 
 /* --- Page transitions ------------------------------------------------- */

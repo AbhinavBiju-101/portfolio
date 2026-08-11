@@ -1,28 +1,43 @@
 // --- Procedural, generative background music + a click sound effect -------
 // No audio files anywhere — everything is synthesized live with the Web
-// Audio API. Off by default (browsers block autoplay-with-sound anyway, and
-// an unannounced music sting on a portfolio site would be rude); a small
-// toggle button turns it on, and the choice is remembered across page loads
-// via localStorage since every navigation here is a real page load, not a
-// client-side route change.
+// Audio API. On by default — a small toggle button mutes it, and the choice
+// is remembered across page loads via localStorage since every navigation
+// here is a real page load, not a client-side route change.
 //
 // Each page gets its own theme (scale, tempo, register, chord progression)
 // so navigating the site feels like moving between different spaces. Every
 // theme is built from the same layered engine — a detuned pad, a sub-bass
 // voice, a lead arpeggio, a sparser high counter-melody, a soft echo bus,
-// and an occasional shimmer — just retuned per page, so it stays one
-// coherent "sound" throughout the site.
+// a rhythmic pulse layer, and an occasional shimmer — just retuned per
+// page, so it stays one coherent "sound" throughout the site.
 //
 // "Continuous across pages": since navigation here is a real page load, the
 // AudioContext itself can't literally survive it — but the *music* isn't
 // meant to restart from bar one every time you click a link. A single song
 // clock (`songStartedAt`, sessionStorage-backed so it survives reloads but
 // resets when the tab/session ends) keeps advancing across every page in
-// this tab. Chord progression and melodic wander position are both derived
-// from that shared clock rather than reset per page, so leaving Home for
-// Projects mid-phrase and coming back later resumes roughly where the piece
-// "would" be — different theme, same underlying pulse — instead of every
-// page feeling like pressing play on an unrelated loop.
+// this tab. Chord progression, melodic wander position, and the "section"
+// (see currentSection() below — the calm/build/peak/release cycle that
+// drives mood and pacing, not just tone) are all derived from that shared
+// clock rather than reset per page, so leaving Home for Projects mid-phrase
+// and coming back later resumes roughly where the piece "would" be.
+//
+// On top of that, the pad doesn't fade in from silence on every page like
+// it used to — it remembers the last chord it was voicing (LAST_VOICE_KEY,
+// sessionStorage) and glides from there into the new page's theme over a
+// couple of seconds, so navigating genuinely sounds like one continuous
+// piece drifting into a new melody/mood rather than one loop stopping and
+// a different one starting cold.
+//
+// Autoplay: browsers block audio-with-sound before any user gesture on an
+// origin, and that's not something a site can (or should try to) bypass.
+// What we *can* do: try to start immediately on load (many browsers allow
+// this once you've interacted with the site once before, since that
+// permission is remembered per-origin, not per-page) and, failing that,
+// treat the very first interaction of *any* kind anywhere on the page —
+// not just a click on the toggle — as the cue to start, so in practice one
+// click anywhere is enough to have music running from then on, including
+// across future navigations.
 (function () {
   "use strict";
 
@@ -30,12 +45,15 @@
   const VOLUME_KEY = "site-audio-volume";
   const SONG_START_KEY = "site-audio-song-start"; // sessionStorage: ms epoch
   const WALK_KEY = "site-audio-walk-state"; // sessionStorage: JSON {lead, counter}
+  const LAST_VOICE_KEY = "site-audio-last-voice"; // sessionStorage: JSON {theme, atMs}
 
   function isEnabled() {
     try {
-      return localStorage.getItem(STORAGE_KEY) === "1";
+      const v = localStorage.getItem(STORAGE_KEY);
+      if (v === null) return true; // on by default
+      return v === "1";
     } catch (e) {
-      return false;
+      return true;
     }
   }
   function setEnabledStored(v) {
@@ -92,6 +110,52 @@
     } catch (e) {
       /* ignore */
     }
+  }
+
+  // What the pad/bass were last voicing (which theme, and at what point on
+  // the shared song clock) — read by the *next* page so its pad can glide
+  // in from that chord instead of fading up from silence. Written every
+  // time the pad (re)starts, so it always reflects "the last page that had
+  // music running," even across several navigations.
+  function loadLastVoice() {
+    try {
+      const raw = sessionStorage.getItem(LAST_VOICE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed.theme !== "string" || !THEMES[parsed.theme]) return null;
+      return parsed;
+    } catch (e) {
+      return null;
+    }
+  }
+  function saveLastVoice(themeKey) {
+    try {
+      sessionStorage.setItem(LAST_VOICE_KEY, JSON.stringify({ theme: themeKey, atMs: songTimeMs() }));
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  // --- Mood/pacing sections ---------------------------------------------
+  // A slow four-phase cycle (calm -> building -> peak -> release) driven by
+  // the same shared song clock as everything else, so it advances across
+  // page loads instead of resetting. This is what varies mood and pacing
+  // rather than just tone: it scales note density, tempo, overall energy,
+  // and how often the counter-melody/shimmer/pulse layers get to speak.
+  const SECTION_CYCLE_MS = 96000; // one full calm->peak->release lap
+  const SECTIONS = [
+    // [fraction of cycle where this section ends, definition]
+    { end: 0.28, name: "calm", density: 0.72, tempo: 1.18, gain: 0.82, pulse: 0.5 },
+    { end: 0.55, name: "building", density: 0.92, tempo: 1.04, gain: 0.94, pulse: 0.85 },
+    { end: 0.8, name: "peak", density: 1.15, tempo: 0.88, gain: 1.12, pulse: 1.15 },
+    { end: 1.0, name: "release", density: 0.85, tempo: 1.1, gain: 0.9, pulse: 0.7 },
+  ];
+  function currentSection() {
+    const frac = (songTimeMs() % SECTION_CYCLE_MS) / SECTION_CYCLE_MS;
+    for (const s of SECTIONS) {
+      if (frac <= s.end) return s;
+    }
+    return SECTIONS[SECTIONS.length - 1];
   }
 
   // --- Per-page themes -------------------------------------------------
@@ -193,6 +257,8 @@
   let bassNodes = null;
   let delayBus = null;
   let walk = { lead: 0, counter: 0 };
+  let pulseTimerId = null;
+  let pulseGain = null;
 
   function ensureContext() {
     if (ctx) return ctx;
@@ -259,16 +325,34 @@
   // filter LFOs, both retargeted (glided, not re-triggered) whenever the
   // chord progression moves to its next chord. Runs continuously while
   // music is on.
-  function startPad(theme) {
+  function startPad(theme, themeKey) {
     const now = ctx.currentTime;
     const chord = chordOffset(theme, songTimeMs());
+    const targetPadFreq = midiToFreq(theme.root + chord - 12);
+    const targetBassFreq = midiToFreq(theme.root + chord - 24);
+
+    // If another page in this tab was already voicing a chord, start there
+    // and glide into this page's theme instead of fading up from silence —
+    // this is the "flows into a different tune" transition rather than a
+    // hard cut between unrelated loops.
+    const lastVoice = loadLastVoice();
+    let startPadFreq = targetPadFreq;
+    let startBassFreq = targetBassFreq;
+    let glide = false;
+    if (lastVoice && lastVoice.theme !== themeKey) {
+      const prevTheme = THEMES[lastVoice.theme];
+      const prevChord = chordOffset(prevTheme, lastVoice.atMs);
+      startPadFreq = midiToFreq(prevTheme.root + prevChord - 12);
+      startBassFreq = midiToFreq(prevTheme.root + prevChord - 24);
+      glide = true;
+    }
 
     const osc1 = ctx.createOscillator();
     const osc2 = ctx.createOscillator();
     osc1.type = theme.padWave;
     osc2.type = theme.padWave;
-    osc1.frequency.value = midiToFreq(theme.root + chord - 12);
-    osc2.frequency.value = midiToFreq(theme.root + chord - 12);
+    osc1.frequency.value = startPadFreq;
+    osc2.frequency.value = startPadFreq;
     osc2.detune.value = 9; // slight beating between the two, for warmth
 
     const filter = ctx.createBiquadFilter();
@@ -296,9 +380,18 @@
     osc2.start(now);
     lfo.start(now);
 
-    // Fade the pad in — short enough that re-entering on a fresh page feels
-    // like the piece picking back up, not restarting from silence.
-    padEnv.gain.linearRampToValueAtTime(theme.gain * 0.22, now + 1.4);
+    if (glide) {
+      // Continuing a piece already in progress: glide from the previous
+      // page's chord into this one, and only need a short volume lift
+      // since the pad isn't starting from true silence conceptually.
+      osc1.frequency.setTargetAtTime(targetPadFreq, now, 1.1);
+      osc2.frequency.setTargetAtTime(targetPadFreq, now, 1.1);
+      padEnv.gain.linearRampToValueAtTime(theme.gain * 0.22, now + 0.6);
+    } else {
+      // First music of the session (or resuming after being muted) — fade
+      // up from silence like before.
+      padEnv.gain.linearRampToValueAtTime(theme.gain * 0.22, now + 1.4);
+    }
 
     padNodes = { osc1, osc2, filter, lfo, lfoGain, padEnv };
 
@@ -306,7 +399,7 @@
     // felt more than heard), gives the pad an actual low end.
     const bassOsc = ctx.createOscillator();
     bassOsc.type = "sine";
-    bassOsc.frequency.value = midiToFreq(theme.root + chord - 24);
+    bassOsc.frequency.value = startBassFreq;
 
     const bassFilter = ctx.createBiquadFilter();
     bassFilter.type = "lowpass";
@@ -320,9 +413,18 @@
     bassEnv.connect(musicGain);
 
     bassOsc.start(now);
-    bassEnv.gain.linearRampToValueAtTime(theme.gain * 0.3, now + 1.6);
+    if (glide) {
+      bassOsc.frequency.setTargetAtTime(targetBassFreq, now, 1.1);
+      bassEnv.gain.linearRampToValueAtTime(theme.gain * 0.3, now + 0.6);
+    } else {
+      bassEnv.gain.linearRampToValueAtTime(theme.gain * 0.3, now + 1.6);
+    }
 
     bassNodes = { bassOsc, bassFilter, bassEnv };
+
+    saveLastVoice(themeKey);
+
+    startPulse(theme);
   }
 
   function stopPad() {
@@ -352,6 +454,73 @@
       }
       bassNodes = null;
     }
+    if (pulseGain) {
+      try {
+        pulseGain.disconnect();
+      } catch (e) {
+        /* already gone */
+      }
+      pulseGain = null;
+    }
+  }
+
+  // --- Rhythmic pulse layer ----------------------------------------------
+  // A soft, low, heartbeat-like thump under everything else — this is a lot
+  // of what makes the loop read as "a piece of music with a pulse" rather
+  // than an ambient drone with notes sprinkled on top. Tempo and intensity
+  // both track the current mood section (see currentSection() above), so
+  // pacing genuinely shifts over time instead of just tone.
+  function pulseBeat(theme) {
+    if (!running || !ctx) return;
+    const section = currentSection();
+    const now = ctx.currentTime;
+    const chord = chordOffset(theme, songTimeMs());
+    const freq = midiToFreq(theme.root + chord - 24);
+
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq * 2, now);
+    osc.frequency.exponentialRampToValueAtTime(freq, now + 0.09);
+
+    const env = ctx.createGain();
+    const peak = theme.gain * 0.16 * section.pulse;
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(peak, now + 0.01);
+    env.gain.exponentialRampToValueAtTime(0.0006, now + 0.32);
+
+    osc.connect(env);
+    env.connect(musicGain);
+    osc.start(now);
+    osc.stop(now + 0.34);
+
+    // Occasional soft off-beat ghost note — pacing detail rather than a
+    // mechanical metronome.
+    if (Math.random() < 0.3 * section.pulse) {
+      const ghost = ctx.createOscillator();
+      ghost.type = "sine";
+      ghost.frequency.value = freq * 1.5;
+      const gEnv = ctx.createGain();
+      gEnv.gain.setValueAtTime(0, now + 0.16);
+      gEnv.gain.linearRampToValueAtTime(peak * 0.4, now + 0.17);
+      gEnv.gain.exponentialRampToValueAtTime(0.0005, now + 0.4);
+      ghost.connect(gEnv);
+      gEnv.connect(musicGain);
+      ghost.start(now + 0.16);
+      ghost.stop(now + 0.42);
+    }
+  }
+
+  function startPulse(theme) {
+    if (pulseTimerId) clearTimeout(pulseTimerId);
+    function loop() {
+      if (!running) return;
+      const section = currentSection();
+      pulseBeat(currentTheme());
+      const base = theme.chordMs / 4; // roughly one thump per quarter-chord
+      const interval = base / section.tempo;
+      pulseTimerId = setTimeout(loop, interval);
+    }
+    loop();
   }
 
   // Glides the pad + bass to the current chord's root rather than
@@ -456,38 +625,44 @@
   function scheduleLoop() {
     if (!running) return;
     const theme = currentTheme();
+    const section = currentSection();
     const now = ctx.currentTime;
     const chord = chordOffset(theme, songTimeMs());
 
     // Lead voice — not every tick plays a note; occasional rests keep it
-    // from feeling like a busy, mechanical arpeggio.
-    if (Math.random() > 0.18) {
+    // from feeling like a busy, mechanical arpeggio. Rest probability and
+    // velocity both track the current mood section, so a "calm" stretch
+    // genuinely plays sparser/softer than a "peak" one, not just quieter.
+    const leadPlayChance = 1 - 0.18 / section.density;
+    if (Math.random() < leadPlayChance) {
       walk.lead = stepWalk(theme, walk.lead);
       const degree = theme.scale[walk.lead];
       const octaveUp = Math.random() < 0.15 ? 12 : 0;
       const freq = midiToFreq(theme.root + chord + degree + octaveUp);
-      const velocity = 0.7 + Math.random() * 0.3;
+      const velocity = (0.7 + Math.random() * 0.3) * section.gain;
       pluck(theme, freq, now + 0.02, velocity, 1, 0.28);
     }
 
     // Sparser high counter-melody, roughly a third of the density of the
     // lead, an octave+ up and quieter — this is what gives the loop its
     // "more than one thing happening" complexity without crowding the mix.
-    if (Math.random() > 0.72) {
+    const counterPlayChance = 0.28 * section.density;
+    if (Math.random() < counterPlayChance) {
       walk.counter = stepWalk(theme, walk.counter);
       const degree = theme.scale[walk.counter];
       const freq = midiToFreq(theme.root + chord + degree + 19);
-      pluck(theme, freq, now + 0.05, 0.55 + Math.random() * 0.25, 0.55, 0.4);
+      pluck(theme, freq, now + 0.05, (0.55 + Math.random() * 0.25) * section.gain, 0.55, 0.4);
     }
 
-    // Very rare shimmer on top.
-    if (Math.random() > 0.94) {
+    // Rare shimmer on top — more likely to show up once things are
+    // building toward a peak than during a calm stretch.
+    if (Math.random() < 0.06 * section.density) {
       shimmer(theme, now + 0.08);
     }
 
     saveWalkState(walk);
 
-    const jitter = theme.noteMs * (0.85 + Math.random() * 0.3);
+    const jitter = (theme.noteMs / section.tempo) * (0.85 + Math.random() * 0.3);
     schedulerId = setTimeout(scheduleLoop, jitter);
   }
 
@@ -506,7 +681,8 @@
     if (running) return;
     running = true;
     walk = loadWalkState();
-    startPad(currentTheme());
+    const themeKey = (document.body && document.body.dataset.page) || "default";
+    startPad(currentTheme(), THEMES[themeKey] ? themeKey : "default");
     scheduleLoop();
     scheduleChordWatch();
   }
@@ -520,6 +696,10 @@
     if (chordTimerId) {
       clearTimeout(chordTimerId);
       chordTimerId = null;
+    }
+    if (pulseTimerId) {
+      clearTimeout(pulseTimerId);
+      pulseTimerId = null;
     }
     if (ctx) stopPad();
   }
@@ -630,20 +810,24 @@
 
     if (enabled) {
       // A fresh page load isn't itself a "user gesture" in every browser,
-      // so autoplay may still be blocked even though the person opted in
-      // last time they clicked the toggle. ensureContext()+resume() here
-      // covers browsers that do allow it; the one-time listener below
-      // catches the rest on the very next interaction, silently.
+      // so autoplay may still be blocked on the very first visit even
+      // though sound is on by default. ensureContext()+resume() here
+      // covers browsers that do allow it outright (including, in Chrome,
+      // any later page once you've interacted with this site once before —
+      // that permission is remembered per-origin, not per-page). The
+      // listener below silently catches everything else on the very next
+      // interaction of *any* kind, anywhere on the page — not just the
+      // audio toggle — so in practice a single click/tap/keypress anywhere
+      // on the site is enough to have music running from then on.
       ensureContext();
       startMusic();
       const resumeOnce = () => {
         if (ctx && ctx.state === "suspended") ctx.resume();
         if (!running) startMusic();
-        document.removeEventListener("pointerdown", resumeOnce);
-        document.removeEventListener("keydown", resumeOnce);
+        events.forEach((ev) => document.removeEventListener(ev, resumeOnce));
       };
-      document.addEventListener("pointerdown", resumeOnce, { once: true });
-      document.addEventListener("keydown", resumeOnce, { once: true });
+      const events = ["pointerdown", "keydown", "touchstart", "wheel"];
+      events.forEach((ev) => document.addEventListener(ev, resumeOnce, { once: true, passive: true }));
     }
 
     // Click SFX itself is triggered from mouse-glow.js's single site-wide

@@ -2,7 +2,9 @@
 {% block title %}About — Abhinav Biju{% endblock %}
 {% block content %}
 <section class="page-head about-head">
-  <img class="about-photo" src="{{ url_for('static', filename='images/about/profile.jpg') }}" alt="Portrait of Abhinav Biju">
+  <div class="about-photo-wrap" id="about-photo-wrap">
+    <img class="about-photo" src="{{ url_for('static', filename='images/about/profile.jpg') }}" alt="Portrait of Abhinav Biju">
+  </div>
   <div class="about-head-text">
     <h1>About</h1>
     <p>

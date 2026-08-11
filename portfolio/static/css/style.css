@@ -316,7 +316,18 @@ code {
   align-items: flex-start;
   gap: 1.75rem;
 }
+.about-photo-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 128px;
+  height: 128px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .about-photo {
+  position: relative;
+  z-index: 2;
   flex-shrink: 0;
   width: 128px;
   height: 128px;
@@ -324,6 +335,39 @@ code {
   object-fit: cover;
   border: 1px solid var(--border);
   box-shadow: 0 0 0 4px var(--bg-raised);
+  animation: about-photo-breathe 5.5s ease-in-out infinite;
+  will-change: transform;
+}
+/* Slow, continuous "alive" breathing — a subtle scale pulsate rather than
+   a jump, so it reads as ambient rather than distracting. */
+@keyframes about-photo-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); }
+}
+/* Halo rings: several identical elements, JS staggers/starts them one at a
+   time (see main.js initAboutPhotoHalo) so pulses go out occasionally
+   rather than in a constant metronomic loop — "occasionally" per the brief,
+   not a steady heartbeat. Each ring expands outward and fades to nothing. */
+.about-photo-halo {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 50%;
+  border: 1.5px solid rgba(231, 232, 234, 0.85);
+  opacity: 0;
+  pointer-events: none;
+}
+.about-photo-halo.is-pulsing {
+  animation: about-photo-halo-pulse 2.2s cubic-bezier(0.2, 0.65, 0.35, 1) forwards;
+}
+@keyframes about-photo-halo-pulse {
+  0% { transform: scale(1); opacity: 0.55; border-color: rgba(255, 255, 255, 0.9); }
+  70% { opacity: 0.18; }
+  100% { transform: scale(1.85); opacity: 0; border-color: rgba(255, 255, 255, 0.5); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .about-photo { animation: none; }
+  .about-photo-halo.is-pulsing { animation: none; opacity: 0; }
 }
 .about-head-text { flex: 1; min-width: 0; }
 @media (max-width: 560px) {
@@ -333,6 +377,7 @@ code {
     text-align: center;
     gap: 1rem;
   }
+  .about-photo-wrap { width: 104px; height: 104px; }
   .about-photo { width: 104px; height: 104px; }
 }
 

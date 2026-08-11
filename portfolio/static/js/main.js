@@ -1009,3 +1009,44 @@ document.addEventListener("DOMContentLoaded", () => {
 
   setTimeout(() => deleteStep(), HOLD_MS);
 });
+
+// --- About page profile photo: occasional halo pulse --------------------
+// The breathing scale animation is pure CSS (see .about-photo in style.css).
+// This just spawns the expanding "halo ring" elements every so often — on a
+// randomized interval rather than a fixed metronome, so it reads as an
+// occasional occurrence rather than a steady beat. Skips entirely under
+// prefers-reduced-motion, matching how the rest of the site's motion is
+// gated.
+document.addEventListener("DOMContentLoaded", () => {
+  const wrap = document.getElementById("about-photo-wrap");
+  if (!wrap) return; // not on the About page
+
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    return;
+  }
+
+  function spawnHalo() {
+    const ring = document.createElement("div");
+    ring.className = "about-photo-halo is-pulsing";
+    ring.addEventListener("animationend", () => ring.remove());
+    wrap.appendChild(ring);
+  }
+
+  function scheduleNext() {
+    // Roughly every 3.5–7s, occasionally a touch sooner — "occasionally",
+    // not a fixed heartbeat.
+    const delay = 3500 + Math.random() * 3500;
+    setTimeout(() => {
+      spawnHalo();
+      // Rare double-pulse for a touch of variation.
+      if (Math.random() < 0.2) {
+        setTimeout(spawnHalo, 260);
+      }
+      scheduleNext();
+    }, delay);
+  }
+
+  // First pulse comes a little sooner so the effect is noticed on arrival.
+  setTimeout(spawnHalo, 900);
+  scheduleNext();
+});

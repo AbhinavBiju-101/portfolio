@@ -4,7 +4,10 @@
 {% block content %}
 <section class="hero">
   <p class="hero-eyebrow">Portfolio / 2026</p>
-  <h1 class="hero-title">Hi, I'm Abhinav Biju.<br>I build systems and games from scratch.</h1>
+  <h1 class="hero-title">Hi, I'm Abhinav Biju.<br>I build <span
+      class="hero-cycle"
+      data-phrases='["systems and games from scratch.","browsers on top of raw Qt.","physics engines with real constraints.","distributed systems for a full computer lab.","evolutionary algorithms that write their own strategies.","a file browser better than the one in your OS."]'
+    >systems and games from scratch.</span></h1>
   <p class="hero-sub">Aspiring software engineer — first-year B.Tech CSE @ VIT Chennai, online BS Data Science @ IIT Madras. Coding since I was 10.</p>
   <a class="hero-cta" href="{{ url_for('projects') }}">See the projects &rarr;</a>
 </section>

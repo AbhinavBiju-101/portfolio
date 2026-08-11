@@ -846,3 +846,63 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   targets.forEach((el) => observer.observe(el));
 });
+
+// --- Hero animated phrase cycle ---------------------------------------------
+// Typewriter effect on the homepage hero: types each phrase, holds, deletes,
+// moves to the next. The element already contains the first phrase as plain
+// text (see index.html), so no-JS and prefers-reduced-motion visitors just
+// see that one phrase, static — this only kicks in as an enhancement.
+document.addEventListener("DOMContentLoaded", () => {
+  const el = document.querySelector(".hero-cycle");
+  if (!el) return;
+
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduceMotion) return;
+
+  let phrases;
+  try {
+    phrases = JSON.parse(el.dataset.phrases || "[]");
+  } catch (err) {
+    return;
+  }
+  if (phrases.length < 2) return;
+
+  const TYPE_MS = 45;
+  const DELETE_MS = 28;
+  const HOLD_MS = 1800;
+  const GAP_MS = 350;
+
+  let phraseIndex = 0;
+  let charIndex = phrases[0].length; // starts already fully "typed"
+
+  function step() {
+    const current = phrases[phraseIndex];
+
+    if (charIndex < current.length) {
+      // Typing forward
+      charIndex++;
+      el.textContent = current.slice(0, charIndex);
+      setTimeout(step, TYPE_MS);
+      return;
+    }
+
+    // Fully typed — hold, then start deleting
+    setTimeout(() => {
+      deleteStep();
+    }, HOLD_MS);
+  }
+
+  function deleteStep() {
+    const current = phrases[phraseIndex];
+    if (charIndex > 0) {
+      charIndex--;
+      el.textContent = current.slice(0, charIndex);
+      setTimeout(deleteStep, DELETE_MS);
+      return;
+    }
+    phraseIndex = (phraseIndex + 1) % phrases.length;
+    setTimeout(step, GAP_MS);
+  }
+
+  setTimeout(() => deleteStep(), HOLD_MS);
+});

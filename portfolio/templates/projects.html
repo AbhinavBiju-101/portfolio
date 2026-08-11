@@ -9,6 +9,13 @@
     <a href="{{ url_for('projects') }}" class="{{ 'is-active' if not pinned_only }}">All</a>
     <a href="{{ url_for('projects', filter='pinned') }}" class="{{ 'is-active' if pinned_only }}">Pinned only</a>
   </div>
+  <div class="project-filter-toggle project-sort-toggle">
+    <span class="project-sort-label">Sort:</span>
+    <a href="{{ url_for('projects', filter='pinned' if pinned_only else None) }}" class="{{ 'is-active' if not sort }}">Pinned first</a>
+    <a href="{{ url_for('projects', filter='pinned' if pinned_only else None, sort='name') }}" class="{{ 'is-active' if sort == 'name' }}">Name</a>
+    <a href="{{ url_for('projects', filter='pinned' if pinned_only else None, sort='created') }}" class="{{ 'is-active' if sort == 'created' }}">Newest</a>
+    <a href="{{ url_for('projects', filter='pinned' if pinned_only else None, sort='loc') }}" class="{{ 'is-active' if sort == 'loc' }}">Lines of code</a>
+  </div>
   <div class="search-bar">
     <input type="search" id="projects-search" class="search-input"
            placeholder="Search projects…" aria-label="Search projects" autocomplete="off">
@@ -34,6 +41,9 @@
         {% if project.pinned %}<span class="pinned-badge" title="One of the top projects">&#9733; Pinned</span>{% endif %}
       </h2>
       <p class="project-tagline">{{ project.tagline }}</p>
+      {% if sort == 'loc' and loc_by_project.get(project.slug) %}
+      <p class="project-loc">{{ "{:,}".format(loc_by_project[project.slug]) }} lines</p>
+      {% endif %}
       {{ render_tags(project) }}
       <div class="project-actions">
         <a class="btn btn-primary" href="{{ url_for('download', slug=project.slug) }}">Download</a>

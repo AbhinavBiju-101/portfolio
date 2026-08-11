@@ -110,7 +110,7 @@ PROJECTS = [
         "pinned": True,
         "name": "Grimoire: Legacy",
         "tagline": "A turn-based spell combat simulator with 150+ unique spells and deep effect interactions.",
-        "created": "TBD",
+        "created": "October 2025",
         "updated": "TBD",
         "description": (
             "**Grimoire: Legacy** started on paper and pen — duels tracked by "
@@ -268,7 +268,7 @@ PROJECTS = [
         "pinned": True,
         "name": "Mining Simulator",
         "tagline": "A text-based mining game — 35 minerals across 4 rarity variants each, with LCM-based weighted drop rates and persistent player accounts.",
-        "created": "TBD",
+        "created": "January 2025",
         "updated": "TBD",
         "description": (
             "A console mining game with account login and an inventory "
@@ -370,7 +370,7 @@ PROJECTS = [
         "pinned": True,
         "name": "Greed Island",
         "tagline": "An evolutionary simulation — 20 autonomous AI agents develop survival strategies through genetic inheritance over generations.",
-        "created": "TBD",
+        "created": "July 2025",
         "updated": "TBD",
         "description": (
             "Twenty AI agents (\"Characters\"), each running as its own "
@@ -553,10 +553,10 @@ PROJECTS = [
     },
     {
         "slug": "skynetgrid",
-        "pinned": True,
+        "pinned": False,
         "name": "SkynetGrid",
         "tagline": "A remote lab-administration suite — deployed with school approval to a computer lab for remote screen viewing, input control, and terminal access.",
-        "created": "TBD",
+        "created": "December 2025",
         "updated": "TBD",
         "description": (
             "A distributed remote-administration system, version 44 as of "
@@ -630,10 +630,10 @@ PROJECTS = [
     },
     {
         "slug": "chatroom",
-        "pinned": False,  # smaller/support project — you mentioned this as the "not top-10" example
+        "pinned": False,
         "name": "Chatroom (v11)",
         "tagline": "A LAN chatroom with a Swing GUI client, multi-client server, file transfer, and emoji support — v11 of an iterated project.",
-        "created": "TBD",
+        "created": "August 2025",
         "updated": "TBD",
         "description": (
             "A local-network chatroom: a multithreaded **ChatServer** "
@@ -702,7 +702,7 @@ PROJECTS = [
         "pinned": True,
         "name": "Navigo",
         "tagline": "A Python-built desktop browser (PyQt5 + QtWebEngine) with tabs, bookmarks, incognito windows, and a full right-click menu.",
-        "created": "TBD",
+        "created": "January 2024",
         "updated": "TBD",
         "description": (
             "A Python based browser, developed with the help of PyQt5 libs "
@@ -827,7 +827,7 @@ PROJECTS = [
         "pinned": False,
         "name": "Exponential Spacebar",
         "tagline": "A terminal incrementer/clicker game — press spacebar to score, with accounts, a world record, and exponentially-formatted numbers.",
-        "created": "TBD",
+        "created": "January 2023",
         "updated": "TBD",
         "description": (
             "A Replit-hosted terminal clicker game: press spacebar to add "
@@ -936,7 +936,7 @@ PROJECTS = [
         "pinned": False,
         "name": "VisualCanvas",
         "tagline": "A Linux app with interactive editors for learning data structures, physics, and chemistry — one infinite pan/zoom canvas, four subjects.",
-        "created": "TBD",
+        "created": "February 2026",
         "updated": "TBD",
         "description": (
             "A linux based app that has interactive ui for learning data "
@@ -1027,7 +1027,7 @@ PROJECTS = [
                         "per-session undo stack — Ctrl+Z/Ctrl+Y work "
                         "everywhere, not just as an afterthought"
                     )},
-                    {"type": "image", "src": "shot2.png", "caption": "Max heap rendered as a tree, with the backing array shown underneath"},
+                    {"type": "image", "src": "shot2A.png", "caption": "Max heap rendered as a tree, with the backing array shown underneath"},
                 ],
             },
             {
@@ -1053,7 +1053,7 @@ PROJECTS = [
                         "out a full reaction mechanism with lone-pair-pushing "
                         "arrows, not just a single molecule"
                     )},
-                    {"type": "image", "src": "shot1.png", "caption": "A curved-arrow reaction mechanism between water and ammonia, drawn on the molecule canvas"},
+                    {"type": "image", "src": "shot1A.png", "caption": "A curved-arrow reaction mechanism between water and ammonia, drawn on the molecule canvas"},
                 ],
             },
             {
@@ -1082,8 +1082,8 @@ PROJECTS = [
                         "without the simulation falling apart — see the "
                         "stress-test screenshot below"
                     )},
-                    {"type": "image", "src": "shot3.png", "caption": "Spring-mass systems with labeled spring constants and rest lengths, mid-simulation"},
-                    {"type": "image", "src": "shot4.png", "caption": "A dense mesh of a dozen interconnected mass blocks and springs, stress-testing the physics engine"},
+                    {"type": "image", "src": "shot3A.png", "caption": "Spring-mass systems with labeled spring constants and rest lengths, mid-simulation"},
+                    {"type": "image", "src": "shot4A.png", "caption": "A dense mesh of a dozen interconnected mass blocks and springs, stress-testing the physics engine"},
                 ],
             },
             {
@@ -1134,6 +1134,229 @@ PROJECTS = [
                         "`javac VisualCanvas.java && java VisualCanvas` "
                         "(JDK 8+) to try it directly. The screenshots above "
                         "are real exports/captures from the app, not staged."
+                    )},
+                ],
+            },
+        ],
+    },
+    {
+        "slug": "filedashboard",
+        "pinned": False,
+        "name": "File Dashboard",
+        "tagline": "A local, grid-based file browser you open in your own browser — built to make previewing PDFs and everything else actually pleasant.",
+        "created": "August 2026",
+        "updated": "TBD",
+        "description": (
+            "The reason this exists: `file:///` in Firefox (or any browser) "
+            "is a bare, unstyled directory listing, and I wanted a "
+            "genuinely convenient way to browse and preview my own files — "
+            "textbooks as PDFs especially — straight from Downloads, "
+            "without opening a separate PDF reader for every single one. "
+            "So I built the file browser I actually wanted: a proper grid "
+            "UI, instant previews, and everything a right-click menu in a "
+            "real file manager would have.\n\n"
+            "It runs entirely locally — a small Java HTTP server "
+            "(`com.sun.net.httpserver`, part of the JDK, no external "
+            "libraries) serving a browser UI at `localhost:8080`, reading "
+            "and writing only your own filesystem. Nothing leaves the "
+            "machine.\n\n"
+            "Yes, the shape of the problem — a browser tab full of your "
+            "files — resembles what Google Drive does. But Drive means "
+            "uploading everything to Google's servers first; this is "
+            "zero-upload, works on files you already have, and — being "
+            "code I control rather than a product I'm a guest in — the UI "
+            "does things Drive's doesn't: right-click parity with a real "
+            "desktop file manager (multi-select zip/move/duplicate), a "
+            "preview modal for genuinely any text-based file regardless of "
+            "extension, instant scrub-through on video/audio previews via "
+            "real HTTP Range support, and frequency-ranked (not just "
+            "recent) quick-launch shortcuts on the dashboard."
+        ),
+        "download_file": "filedashboard.zip",
+        "languages": ["Java"],
+        "skills": ["Networking", "File Handling", "Client-Server Architecture", "Systems & DevOps", "Security"],
+        "runtime": None,
+        "sections": [
+            {
+                "title": "How it works",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "Opening `localhost:8080` loads a persistent "
+                        "**shell** — a sidebar plus a tab bar, both living "
+                        "outside the page content in an iframe-based "
+                        "architecture, so clicking around the sidebar "
+                        "navigates the *current* tab instead of reloading "
+                        "the whole window. Only the **+** button opens a "
+                        "genuinely new tab. Press **`/`** anywhere to pop a "
+                        "floating address bar and jump straight to a path.\n\n"
+                        "- **Dashboard** — frequency-ranked \"frequently "
+                        "viewed\" files, recently downloaded files, and "
+                        "most-visited folders, each a horizontally-"
+                        "scrolling row\n"
+                        "- **Browse tabs** — the folder grid itself, with "
+                        "type filter chips (Images/PDFs/Docs/Video/Audio/"
+                        "Archives/Other), sort options, and a live-refresh "
+                        "toggle backed by Java's `WatchService`\n"
+                        "- **Search** — recursive filename search with a "
+                        "live-suggestion dropdown, ranked by actual usage\n"
+                        "- **Viewer tabs** — a dedicated full-tab reading "
+                        "view for PDFs and any text file, with Previous/"
+                        "Next between sibling files and a small built-in "
+                        "Markdown renderer\n"
+                        "- **Recycle Bin** — deletes move things to a "
+                        "hidden trash folder rather than removing them "
+                        "immediately; restorable until emptied, and you "
+                        "can browse *into* a trashed folder without "
+                        "restoring it first\n"
+                        "- **Settings** — change the root folder, toggle "
+                        "Windows autostart, adjust dashboard limits, all "
+                        "without recompiling anything\n\n"
+                        "Selection works the way a desktop file manager's "
+                        "does — click to select, Ctrl/Cmd-click to add, "
+                        "Shift-click for a range — and everything (rename, "
+                        "duplicate, move, download, delete, zip a "
+                        "selection) lives in a right-click menu rather "
+                        "than a toolbar."
+                    )},
+                ],
+            },
+            {
+                "title": "Previews — the actual point of the project",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "Clicking a card opens a preview modal right in "
+                        "the tab — for a PDF, that's a plain `<iframe>` "
+                        "pointed at the file, so it's genuinely instant, "
+                        "no separate reader, no upload-and-wait. Left/"
+                        "Right arrow keys step to the previous/next file "
+                        "in the folder, so flipping through a folder of "
+                        "scanned textbook chapters is just arrow-key-arrow-"
+                        "key. A PDF's preview also has an **Edit ↗** button "
+                        "that opens it in a real browser tab, handing off "
+                        "to the browser's own PDF tools (Firefox's editor, "
+                        "an Adobe extension, whatever's installed) for "
+                        "anything beyond reading.\n\n"
+                        "Images, audio, and video preview inline too — "
+                        "video/audio scrubbing is instant rather than "
+                        "buffer-from-zero because `FileViewHandler` "
+                        "actually implements HTTP Range requests (RFC "
+                        "7233, real `206 Partial Content` responses), the "
+                        "same mechanism a real media server uses, not just "
+                        "a static file dump.\n\n"
+                        "**The part that goes beyond \"a PDF viewer\":** "
+                        "any text-based file previews too, not just a "
+                        "hardcoded list of extensions. `TextSniffer` reads "
+                        "the first ~8KB of a file with an unrecognized "
+                        "extension and checks it for text-like content "
+                        "(no NUL bytes, >95% printable/whitespace bytes) — "
+                        "so a homegrown format with no extension "
+                        "convention at all (this portfolio's own "
+                        "`.vcanvas` files, for instance) previews exactly "
+                        "like a `.txt` or `.py` would, with zero code "
+                        "changes needed per extension."
+                    )},
+                ],
+            },
+            {
+                "title": "What's actually non-trivial here",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "- **A real security bug, actually found and "
+                        "fixed.** The path-containment check originally "
+                        "canonicalized both the root and the requested "
+                        "path (`File.getCanonicalFile()`), which also "
+                        "resolves symlinks/junctions. Windows commonly "
+                        "redirects Desktop/Documents/Pictures via NTFS "
+                        "junction points (OneDrive's \"Known Folder "
+                        "Move\" does this), and canonicalizing could "
+                        "resolve an ordinary subfolder somewhere that no "
+                        "longer looked \"under\" the root — incorrectly "
+                        "throwing \"Forbidden\" on a legitimate folder. "
+                        "Fixed by switching to `Path.normalize()` (purely "
+                        "lexical `..`/`.` collapsing, no filesystem or "
+                        "symlink resolution at all) — verified by actually "
+                        "building a symlink that reproduced the false "
+                        "positive, confirming the fix resolves it, and "
+                        "confirming real `../..` traversal is still "
+                        "correctly blocked afterward\n"
+                        "- **A concurrency bug traced to an HTTP/1.1 "
+                        "protocol limit, not application logic.** "
+                        "\"Recently downloaded\" would stop updating on "
+                        "the Dashboard tab with several Browse tabs open. "
+                        "Root cause: every open tab held its own "
+                        "long-lived Server-Sent-Events connection, and "
+                        "browsers cap concurrent connections per origin at "
+                        "6 over HTTP/1.1 (all `com.sun.net.httpserver` "
+                        "speaks) — so the Dashboard's own SSE connection "
+                        "could get queued out indefinitely behind several "
+                        "Browse tabs' connections. Fixed by rewriting that "
+                        "one endpoint from a held-open SSE stream into a "
+                        "plain version-poll (`{\"version\": N}`) hit every "
+                        "3s via `fetch()` instead\n"
+                        "- **Frequency and recency are deliberately kept "
+                        "separate.** `RecentActivity` tracks per-file view "
+                        "counts in one map and a most-recently-used list "
+                        "in another — \"Frequently viewed\" genuinely "
+                        "ranks by how often a file gets opened, not "
+                        "recency dressed up as frequency, while the MRU "
+                        "list still separately feeds search suggestions "
+                        "where \"just looked at this\" is its own useful "
+                        "signal\n"
+                        "- **Autostart that verifies itself.** "
+                        "`AutostartManager` wraps the same `schtasks` "
+                        "commands as the install script via "
+                        "`ProcessBuilder`, finds its own running jar's "
+                        "path through "
+                        "`getProtectionDomain().getCodeSource()`, and "
+                        "live-queries Windows Task Scheduler for the "
+                        "actual current state rather than trusting a "
+                        "stored flag that could drift out of sync"
+                    )},
+                ],
+            },
+            {
+                "title": "Running it",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "No external libraries or build tool — plain JDK "
+                        "throughout. Either:\n\n"
+                        "- **As a jar:** `build-jar.bat` compiles and "
+                        "packages `FileDashboard.jar`; run it with "
+                        "`java -jar FileDashboard.jar`, then open "
+                        "`http://localhost:8080`\n"
+                        "- **From source / BlueJ:** open the folder as a "
+                        "BlueJ project (`package.bluej` included), compile "
+                        "everything, right-click `FileServer` → "
+                        "`void main(String[] args)` → pass `null`\n"
+                        "- **`install-autostart.bat`** registers a "
+                        "per-user Windows logon Scheduled Task (no admin, "
+                        "no console window) so it's just always running; "
+                        "`stop.bat` and `uninstall-autostart.bat` undo "
+                        "that\n\n"
+                        "Compiled clean start to finish while putting this "
+                        "writeup together, including the most recent "
+                        "batch of changes noted in the project's own "
+                        "`TODO.md` as \"reviewed by hand but not yet "
+                        "compiled\" — and a quick local run confirmed "
+                        "browsing, file serving, and search suggestions "
+                        "all working end to end."
+                    )},
+                ],
+            },
+            {
+                "title": "Why no live preview",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "This one's a genuinely different case from a "
+                        "sandboxed console app: it's a real local HTTP "
+                        "server whose entire point is browsing *your own* "
+                        "filesystem — there's no meaningful way to run "
+                        "that against a stranger's browser session on this "
+                        "site without either exposing a real filesystem to "
+                        "the internet or faking one so thoroughly it "
+                        "wouldn't demonstrate anything real. Download it "
+                        "and run it against your own files instead — "
+                        "that's the actual use case."
                     )},
                 ],
             },
@@ -1531,15 +1754,51 @@ def home():
     )
 
 
+_MONTHS = {m: i for i, m in enumerate(
+    ["january", "february", "march", "april", "may", "june", "july",
+     "august", "september", "october", "november", "december"], start=1)}
+
+
+def _parse_created(s):
+    """'October 2025' -> (2025, 10); anything else (incl. 'TBD') -> None."""
+    parts = (s or "").strip().split()
+    if len(parts) == 2 and parts[1].isdigit():
+        month = _MONTHS.get(parts[0].lower())
+        if month:
+            return (int(parts[1]), month)
+    return None
+
+
 @app.route("/projects")
 def projects():
     pinned_only = request.args.get("filter") == "pinned"
-    # Stable sort: pinned projects float to the top, everything else keeps
-    # its original relative order underneath — nothing is ever hidden by
-    # this sort, only reordered (use ?filter=pinned to actually hide the rest).
-    sorted_projects = sorted(PROJECTS, key=lambda p: not p.get("pinned", False))
+    sort = request.args.get("sort")
+    if sort not in ("name", "created", "loc"):
+        sort = None
+
+    if sort == "name":
+        sorted_projects = sorted(PROJECTS, key=lambda p: p["name"].lower())
+    elif sort == "created":
+        # Newest first; projects with no real date ("TBD") sort last.
+        sorted_projects = sorted(
+            PROJECTS,
+            key=lambda p: (_parse_created(p.get("created")) is None,
+                            tuple(-x for x in (_parse_created(p.get("created")) or (0, 0)))),
+        )
+    elif sort == "loc":
+        # Most lines of code first.
+        sorted_projects = sorted(PROJECTS, key=lambda p: -LOC_BY_PROJECT.get(p["slug"], 0))
+    else:
+        # Default: stable sort, pinned projects float to the top, everything
+        # else keeps its original relative order underneath — nothing is
+        # ever hidden by this sort, only reordered.
+        sorted_projects = sorted(PROJECTS, key=lambda p: not p.get("pinned", False))
+
     shown = [p for p in sorted_projects if p.get("pinned")] if pinned_only else sorted_projects
-    return render_template("projects.html", active="projects", projects=shown, pinned_only=pinned_only)
+    return render_template(
+        "projects.html", active="projects", projects=shown, pinned_only=pinned_only,
+        sort=sort, loc_by_project=LOC_BY_PROJECT,
+    )
 
 
 @app.route("/projects/<slug>")

@@ -51,6 +51,45 @@ body {
   will-change: transform;
 }
 
+/* --- Ambient audio toggle ------------------------------------------------ */
+#audio-toggle {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 40;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+#audio-toggle:hover {
+  color: var(--text);
+  transform: scale(1.06);
+}
+#audio-toggle.is-on {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+#audio-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (max-width: 560px) {
+  #audio-toggle {
+    right: 0.85rem;
+    bottom: 0.85rem;
+    width: 38px;
+    height: 38px;
+  }
+}
+
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -135,6 +174,33 @@ code {
   font-weight: 600;
 }
 
+/* --- Hero animated phrase cycle ------------------------------------------ */
+/* .hero-cycle's text is swapped by JS (typewriter effect); the cursor is a
+   plain CSS blink so it keeps animating even between JS's type/pause/delete
+   steps. Falls back to the plain static phrase already in the HTML when JS
+   doesn't run or prefers-reduced-motion is set — see main.js. */
+.hero-cycle {
+  position: relative;
+  color: var(--accent);
+}
+.has-js .hero-cycle::after {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 0.85em;
+  margin-left: 2px;
+  background: var(--accent);
+  vertical-align: -0.1em;
+  animation: cursor-blink 1s step-end infinite;
+}
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .has-js .hero-cycle::after { animation: none; }
+}
+
 /* --- Homepage stats strip ------------------------------------------- */
 .stats-strip {
   display: grid;
@@ -181,7 +247,9 @@ code {
 /* --- Page head (Projects / About) --------------------------------------- */
 .page-head { margin-bottom: 2.5rem; }
 .page-head h1 { margin-bottom: 0.5rem; }
-.project-filter-toggle { display: flex; gap: 0.5rem; margin-top: 1rem; }
+.project-filter-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 1rem; }
+.project-sort-label { font-size: 0.8rem; color: var(--text-dim); margin-right: 0.15rem; }
+.project-loc { font-size: 0.78rem; color: var(--accent); font-family: monospace; margin: 0.2rem 0 0; }
 .project-filter-toggle a {
   font-size: 0.85rem;
   padding: 0.3rem 0.8rem;

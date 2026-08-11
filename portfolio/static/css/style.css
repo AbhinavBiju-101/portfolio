@@ -162,6 +162,16 @@ code {
   font-size: clamp(2rem, 5vw, 3.25rem);
   line-height: 1.15;
   margin: 0 0 1.25rem;
+  /* The typewriter cycle (see .hero-cycle / main.js) grows and shrinks the
+     text of the last line character-by-character. Depending on the current
+     phrase's length and the viewport width, that line wraps onto a 2nd line
+     sometimes and not other times — without a height reservation the whole
+     hero block resizes every time that happens, which reads as the page
+     bouncing up and down while it types. Reserving height for 3 lines
+     up front (1 fixed "Hi, I'm..." line + up to 2 wrapped lines for the
+     longest phrase) keeps the box a constant height no matter how the
+     current phrase happens to wrap. */
+  min-height: calc(3 * 1.15em);
 }
 .hero-sub {
   color: var(--text-dim);

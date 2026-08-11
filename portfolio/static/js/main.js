@@ -92,6 +92,109 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;");
 }
 
+// --- ANSI -> HTML for the console previews --------------------------------
+// The Java/Python console previews (mining-simulator, exponential-spacebar,
+// etc.) are real processes streaming real stdout, which includes genuine
+// ANSI color escape codes (confirmed: mining-simulator.jar emits standard
+// SGR codes like \x1b[31m, \x1b[40m). The console output box used to be set
+// via textContent, so those codes showed up as either literal garbage or
+// invisible control characters instead of color. This parses SGR ("Select
+// Graphic Rendition") codes into styled <span>s and drops non-color CSI
+// sequences (cursor-move / clear-screen codes like \x1b[H, \x1b[2J) outright
+// — this console is an append-only scrolling log, not a real terminal, so
+// there's nothing sensible to do with "move cursor" here.
+const ANSI_STANDARD = ["#4d4d4d", "#e05561", "#3fb765", "#d7ae4e", "#5591e0", "#b56ce0", "#3fb0b0", "#d6d6d6"];
+const ANSI_BRIGHT = ["#7a7a7a", "#ff7b86", "#6fdb8f", "#ffd873", "#82b1ff", "#d99bff", "#6fdede", "#ffffff"];
+
+function ansi256ToColor(n) {
+  if (n < 8) return ANSI_STANDARD[n];
+  if (n < 16) return ANSI_BRIGHT[n - 8];
+  if (n < 232) {
+    const m = n - 16;
+    const level = (v) => (v === 0 ? 0 : v * 40 + 55);
+    return `rgb(${level(Math.floor(m / 36))},${level(Math.floor((m % 36) / 6))},${level(m % 6)})`;
+  }
+  const gray = 8 + (n - 232) * 10;
+  return `rgb(${gray},${gray},${gray})`;
+}
+
+function ansiSpanStyle(state) {
+  let fg = state.fg;
+  let bg = state.bg;
+  if (state.reverse) {
+    const t = fg;
+    fg = bg || "#0c0d10";
+    bg = t || "#e7e8ea";
+  }
+  const styles = [];
+  if (fg) styles.push("color:" + fg);
+  if (bg) styles.push("background:" + bg);
+  if (state.bold) styles.push("font-weight:700");
+  if (state.dim) styles.push("opacity:.65");
+  if (state.italic) styles.push("font-style:italic");
+  if (state.underline) styles.push("text-decoration:underline");
+  if (state.hidden) styles.push("visibility:hidden");
+  return styles.join(";");
+}
+
+function freshAnsiState() {
+  return { fg: null, bg: null, bold: false, dim: false, italic: false, underline: false, reverse: false, hidden: false };
+}
+
+// eslint-disable-next-line no-control-regex
+const ANSI_CSI_RE = /\x1b\[([0-9;]*)([A-Za-z])/g;
+
+function ansiToHtml(str) {
+  let result = "";
+  let lastIndex = 0;
+  let state = freshAnsiState();
+  let match;
+
+  function flush(text) {
+    if (!text) return;
+    const style = ansiSpanStyle(state);
+    const safe = escapeHtml(text);
+    result += style ? `<span style="${style}">${safe}</span>` : safe;
+  }
+
+  ANSI_CSI_RE.lastIndex = 0;
+  while ((match = ANSI_CSI_RE.exec(str)) !== null) {
+    flush(str.slice(lastIndex, match.index));
+    lastIndex = ANSI_CSI_RE.lastIndex;
+    const final = match[2];
+    if (final !== "m") continue; // drop cursor-move/clear-screen/etc. — see note above
+
+    const codes = match[1].length ? match[1].split(";").map(Number) : [0];
+    for (let i = 0; i < codes.length; i++) {
+      const c = codes[i];
+      if (c === 0) state = freshAnsiState();
+      else if (c === 1) state.bold = true;
+      else if (c === 2) state.dim = true;
+      else if (c === 3) state.italic = true;
+      else if (c === 4) state.underline = true;
+      else if (c === 7) state.reverse = true;
+      else if (c === 8) state.hidden = true;
+      else if (c === 22) { state.bold = false; state.dim = false; }
+      else if (c === 23) state.italic = false;
+      else if (c === 24) state.underline = false;
+      else if (c === 27) state.reverse = false;
+      else if (c === 28) state.hidden = false;
+      else if (c >= 30 && c <= 37) state.fg = ANSI_STANDARD[c - 30];
+      else if (c === 38 && codes[i + 1] === 5) { state.fg = ansi256ToColor(codes[i + 2]); i += 2; }
+      else if (c === 38 && codes[i + 1] === 2) { state.fg = `rgb(${codes[i + 2]},${codes[i + 3]},${codes[i + 4]})`; i += 4; }
+      else if (c === 39) state.fg = null;
+      else if (c >= 40 && c <= 47) state.bg = ANSI_STANDARD[c - 40];
+      else if (c === 48 && codes[i + 1] === 5) { state.bg = ansi256ToColor(codes[i + 2]); i += 2; }
+      else if (c === 48 && codes[i + 1] === 2) { state.bg = `rgb(${codes[i + 2]},${codes[i + 3]},${codes[i + 4]})`; i += 4; }
+      else if (c === 49) state.bg = null;
+      else if (c >= 90 && c <= 97) state.fg = ANSI_BRIGHT[c - 90];
+      else if (c >= 100 && c <= 107) state.bg = ANSI_BRIGHT[c - 100];
+    }
+  }
+  flush(str.slice(lastIndex));
+  return result;
+}
+
 // --- Python projects, via Pyodide (fully client-side) --------------------
 async function loadPyodidePreview(src, container) {
   container.innerHTML = '<p class="preview-status">Loading Python runtime…</p>';
@@ -201,7 +304,7 @@ async function loadJavaConsolePreview(slug, container, onSession, langLabel = "J
       if (!renderScheduled) {
         renderScheduled = true;
         requestAnimationFrame(() => {
-          output.textContent = buffer;
+          output.innerHTML = ansiToHtml(buffer);
           outputWrap.scrollTop = outputWrap.scrollHeight;
           renderScheduled = false;
         });
@@ -475,7 +578,7 @@ async function loadNetworkSimPreview(slug, container, onSource) {
       if (renderScheduled) return;
       renderScheduled = true;
       requestAnimationFrame(() => {
-        output.textContent = buffers[activeChannel] || "";
+        output.innerHTML = ansiToHtml(buffers[activeChannel] || "");
         outputWrap.scrollTop = outputWrap.scrollHeight;
         renderScheduled = false;
       });

@@ -1728,6 +1728,149 @@ def project_images(project):
     return discover_gallery_images(project["slug"])
 
 
+# --- Project file tree (source + resources) ------------------------------
+# Powers the "Files" block on each project's detail page: a scrollable,
+# ASCII "tree"-style listing of exactly what ships in the download — same
+# frame/toolbar treatment as the spell list / item index text blocks above,
+# just generated instead of hand-pasted, since a zip's contents change as
+# projects are updated and shouldn't need a manual re-paste every time.
+#
+# Two sources, matching the two ways a project can be downloaded (see the
+# PROJECTS field docs above):
+#   - "github" projects: the real GitHub tree, via the git trees API.
+#   - "download_file" projects: read straight out of the zip in
+#     static/downloads/ — these are raw dev-folder zips (see the download
+#     route), so noise like .git/ internals and OS junk files is filtered
+#     out here rather than at zip time.
+FILE_TREE_CACHE = {}
+FILE_TREE_LOCK = threading.Lock()
+FILE_TREE_TTL_SECONDS = 3600
+
+_TREE_EXCLUDE_DIR_NAMES = {".git", "__pycache__", ".idea", ".vscode", "node_modules"}
+_TREE_EXCLUDE_FILE_NAMES = {".DS_Store", "Thumbs.db"}
+
+
+def _tree_path_excluded(path):
+    parts = path.strip("/").split("/")
+    return any(part in _TREE_EXCLUDE_DIR_NAMES for part in parts[:-1]) or parts[-1] in _TREE_EXCLUDE_FILE_NAMES
+
+
+def _entries_from_zip(zip_filename):
+    zpath = os.path.join(DOWNLOAD_DIR, zip_filename)
+    entries = []
+    with zipfile.ZipFile(zpath) as z:
+        for info in z.infolist():
+            if info.is_dir():
+                continue
+            path = info.filename
+            if _tree_path_excluded(path):
+                continue
+            entries.append((path, info.file_size))
+    return entries
+
+
+def _entries_from_github(owner, repo):
+    branch = get_default_branch(owner, repo)
+    r = requests.get(
+        f"https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}",
+        params={"recursive": "1"},
+        headers={"Accept": "application/vnd.github+json"},
+        timeout=6,
+    )
+    r.raise_for_status()
+    entries = []
+    for item in r.json().get("tree", []):
+        if item.get("type") != "blob":
+            continue
+        path = item["path"]
+        if _tree_path_excluded(path):
+            continue
+        entries.append((path, item.get("size", 0)))
+    return entries
+
+
+def _build_tree_dict(entries):
+    """entries: list of (path, size). Returns a nested dict tree:
+    {"__files__": [(name, size), ...], "subdir_name": {...}, ...}"""
+    root = {"__files__": []}
+    for path, size in entries:
+        parts = path.split("/")
+        node = root
+        for part in parts[:-1]:
+            node = node.setdefault(part, {"__files__": []})
+        node["__files__"].append((parts[-1], size))
+    return root
+
+
+def _human_size(n):
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024:
+            return f"{n:.0f}{unit}" if unit == "B" else f"{n:.1f}{unit}"
+        n /= 1024
+    return f"{n:.1f}TB"
+
+
+def _render_tree_lines(node, prefix=""):
+    lines = []
+    dirs = sorted(k for k in node if k != "__files__")
+    files = sorted(node["__files__"], key=lambda t: t[0].lower())
+    children = [("dir", d) for d in dirs] + [("file", f[0], f[1]) for f in files]
+    for i, child in enumerate(children):
+        is_last = i == len(children) - 1
+        connector = "└── " if is_last else "├── "
+        if child[0] == "dir":
+            name = child[1]
+            lines.append(f"{prefix}{connector}{name}/")
+            extension = "    " if is_last else "│   "
+            lines.extend(_render_tree_lines(node[name], prefix + extension))
+        else:
+            _, name, size = child
+            lines.append(f"{prefix}{connector}{name}  ({_human_size(size)})")
+    return lines
+
+
+def build_project_file_tree_text(project):
+    """Returns an ASCII directory-tree string of a project's source +
+    resources, or None if it can't be built (network/zip issue)."""
+    slug = project["slug"]
+    now = time.time()
+    with FILE_TREE_LOCK:
+        cached = FILE_TREE_CACHE.get(slug)
+        if cached and (now - cached["fetched_at"] < FILE_TREE_TTL_SECONDS):
+            return cached["text"]
+
+    try:
+        if project.get("github"):
+            owner, repo = project["github"].split("/", 1)
+            entries = _entries_from_github(owner, repo)
+            root_label = project["github"]
+        elif project.get("download_file"):
+            entries = _entries_from_zip(project["download_file"])
+            root_label = project["name"]
+        else:
+            return None
+
+        if not entries:
+            return None
+
+        tree = _build_tree_dict(entries)
+        lines = [f"{root_label}/"] + _render_tree_lines(tree)
+        text = "\n".join(lines)
+    except Exception:
+        with FILE_TREE_LOCK:
+            cached = FILE_TREE_CACHE.get(slug)
+        return cached["text"] if cached else None
+
+    with FILE_TREE_LOCK:
+        FILE_TREE_CACHE[slug] = {"text": text, "fetched_at": now}
+    return text
+
+
+@app.template_global("project_file_tree")
+def project_file_tree(project):
+    return build_project_file_tree_text(project)
+
+
 def get_default_branch(owner, repo):
     """Ask GitHub which branch is the default, falling back to 'main'."""
     try:
@@ -1887,15 +2030,15 @@ READER_FLUSH_INTERVAL = 0.05  # seconds
 READER_FLUSH_SIZE = 400       # characters, safety valve for very fast bursts
 
 # Some projects (e.g. Mining Simulator) print raw ANSI color/style codes
-# meant for a real terminal. Our preview is a plain <pre> text box in the
-# browser, which can't interpret those — left alone they'd show up as
-# garbled control characters. Strip them at flush time instead.
-_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
-
-
+# meant for a real terminal. These used to be stripped here since the old
+# preview console was a plain <pre> text box that couldn't interpret them
+# (they'd otherwise show up as garbled control characters). The console
+# output box now parses ANSI SGR codes into real color client-side (see
+# ansiToHtml() in main.js), so those codes are passed straight through
+# unmodified instead of being stripped.
 def _flush_chunk(q, buf):
     if buf:
-        q.put(_ANSI_ESCAPE.sub("", "".join(buf)))
+        q.put("".join(buf))
         buf.clear()
 
 
@@ -2231,7 +2374,7 @@ def _ensure_chatroom_network():
 
         server_hub = BroadcastHub()
         for line in early_lines:
-            server_hub.put(_ANSI_ESCAPE.sub("", line))
+            server_hub.put(line)
         server_buf, server_buf_lock = [], threading.Lock()
         threading.Thread(target=_reader_thread, args=(proc.stdout, server_hub, server_buf, server_buf_lock), daemon=True).start()
         threading.Thread(target=_flusher_thread, args=(lambda: proc.poll() is None, server_hub, server_buf, server_buf_lock), daemon=True).start()

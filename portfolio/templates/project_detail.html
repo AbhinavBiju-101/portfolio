@@ -114,6 +114,22 @@
     {% endfor %}
   </section>
   {% endfor %}
+
+  {% set file_tree = project_file_tree(project) %}
+  {% if file_tree %}
+  <section class="content-section">
+    <h2 class="content-section-title">Files</h2>
+    <figure class="content-text-block">
+      <div class="text-block-toolbar">
+        <button type="button" class="text-zoom-btn" data-zoom="out" aria-label="Decrease text size">A&minus;</button>
+        <span class="text-zoom-readout" aria-live="polite"></span>
+        <button type="button" class="text-zoom-btn" data-zoom="in" aria-label="Increase text size">A+</button>
+      </div>
+      <pre class="scrollable-text text-zoom-target file-tree">{{ file_tree }}</pre>
+      <figcaption>Everything that ships in the download — source and resources, {{ 'straight from the GitHub repo' if project.github else 'read out of the zip' }}.</figcaption>
+    </figure>
+  </section>
+  {% endif %}
 </section>
 
 {% if project.runtime %}

@@ -101,9 +101,12 @@ MINING_ITEM_INDEX = load_content_text("mining-simulator/item_index.txt")
 #                    actually pin down. Shown on the detail page. Placeholder
 #                    values below — swap in the real ones by checking each
 #                    project's oldest commit / first working version.
-# "updated"      -> same format as "created". Placeholder values below —
-#                    swap in the real ones by checking each project's most
-#                    recent commit / latest release you actually shipped.
+# "updated"      -> same format as "created". For any project with a
+#                    "github" field set, this is overridden automatically
+#                    at request time with that repo's actual last-commit
+#                    month (see get_github_last_commit_month() below) — so
+#                    it only matters as a fallback for projects without a
+#                    "github" repo. Placeholder values below for those.
 PROJECTS = [
     {
         "slug": "grimoire-legacy",
@@ -1543,6 +1546,64 @@ def get_github_stars():
         return GITHUB_STARS_CACHE["total"]
 
 
+# --- GitHub "last updated" (per project) --------------------------------
+# The project detail page's "Last updated" line used to be a hand-maintained
+# "updated" field in PROJECTS (mostly left as "TBD" — easy to forget to
+# bump). For any project with a "github" repo set, this pulls the date of
+# that repo's most recent commit instead, so it stays accurate without
+# manual upkeep. Projects without a "github" field keep using their
+# hand-written "updated" field, since there's nothing to fetch for those.
+#
+# Cached per-repo (1 hour TTL, same reasoning as stars above) — this calls
+# GitHub's commits endpoint, a *separate* rate-limit bucket from the repo
+# endpoint stars uses, but same 60/hour-unauthenticated ceiling, so caching
+# matters just as much here.
+GITHUB_LAST_COMMIT_CACHE = {}  # repo -> {"date": "August 2026" | None, "fetched_at": float}
+GITHUB_LAST_COMMIT_LOCK = threading.Lock()
+GITHUB_LAST_COMMIT_TTL_SECONDS = 3600
+
+
+def get_github_last_commit_month(repo):
+    """repo is 'owner/name'. Returns 'Month YYYY' (matching the "created"
+    field's granularity) for that repo's default-branch HEAD commit, or
+    None if it's never been fetched successfully."""
+    now = time.time()
+    with GITHUB_LAST_COMMIT_LOCK:
+        entry = GITHUB_LAST_COMMIT_CACHE.get(repo)
+        if entry is not None and (now - entry["fetched_at"] < GITHUB_LAST_COMMIT_TTL_SECONDS):
+            return entry["date"]
+
+    formatted = None
+    try:
+        resp = requests.get(
+            f"https://api.github.com/repos/{repo}/commits",
+            params={"per_page": 1},
+            headers={"Accept": "application/vnd.github+json"},
+            timeout=4,
+        )
+        if resp.status_code == 200:
+            commits = resp.json()
+            if commits:
+                # Prefer the committer date (when it actually landed on the
+                # default branch) over the author date (when it was
+                # originally written, which can predate a rebase/merge).
+                iso_date = commits[0]["commit"]["committer"]["date"]
+                dt = datetime.strptime(iso_date[:10], "%Y-%m-%d")
+                formatted = dt.strftime("%B %Y")
+    except (requests.RequestException, KeyError, IndexError, ValueError):
+        pass
+
+    with GITHUB_LAST_COMMIT_LOCK:
+        if formatted is not None:
+            GITHUB_LAST_COMMIT_CACHE[repo] = {"date": formatted, "fetched_at": now}
+            return formatted
+        # Fetch failed — serve the last known-good value if there is one
+        # (stale is fine), otherwise fall through to None so the template
+        # can fall back to the hand-written "updated" field.
+        stale = GITHUB_LAST_COMMIT_CACHE.get(repo)
+        return stale["date"] if stale else None
+
+
 # --- Certifications & Achievements -------------------------------------
 # Two separate lists shown on one page (/certifications), divided by a
 # visual separator — certifications first, achievements below.
@@ -2122,6 +2183,14 @@ def project_detail(slug):
     project = get_project(slug)
     if project is None:
         abort(404)
+    if project.get("github"):
+        # Live "last updated" from the repo's HEAD commit, falling back to
+        # the hand-written "updated" field if the fetch has never
+        # succeeded (rate-limited, offline, etc.) — see
+        # get_github_last_commit_month() above.
+        live_updated = get_github_last_commit_month(project["github"])
+        if live_updated:
+            project = {**project, "updated": live_updated}
     return render_template("project_detail.html", active="projects", project=project)
 
 

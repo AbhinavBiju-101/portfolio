@@ -14,7 +14,9 @@
 </head>
 <body data-page="{{ active or 'default' }}">
   <canvas id="bg-canvas" aria-hidden="true"></canvas>
+  <canvas id="bg-visualizer" aria-hidden="true"></canvas>
   <div id="mouse-glow" aria-hidden="true"></div>
+  <canvas id="cursor-trail-canvas" aria-hidden="true"></canvas>
 
   <header class="site-header">
     <a class="brand" href="{{ url_for('home') }}">Abhinav Biju<span class="brand-dot">.</span></a>
@@ -43,6 +45,8 @@
   <script src="{{ url_for('static', filename='js/background.js') }}"></script>
   <script src="{{ url_for('static', filename='js/mouse-glow.js') }}"></script>
   <script src="{{ url_for('static', filename='js/audio.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/visualizer.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/cursor-trail.js') }}"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>

@@ -37,6 +37,33 @@ body {
   pointer-events: none;
 }
 
+/* Fixed (not absolute) — unlike the ember canvas above, this stays pinned
+   to the viewport rather than scrolling with the page, which is what
+   makes it read as a watermark stamped on the screen instead of part of
+   the page content. Sits just above the ember layer but still well
+   behind everything else. */
+#bg-visualizer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Above content (small particles need to be visible while dragging over
+   text/cards) but below the fixed audio toggle / preview modal. */
+#cursor-trail-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 55;
+  pointer-events: none;
+}
+
 #mouse-glow {
   position: fixed;
   top: 0;

@@ -774,6 +774,46 @@
     return { low, high };
   }
 
+  // Downsampled frequency spectrum for the background visualizer — buckets
+  // the analyser's frequency bins into `bars` averaged values (0-1 each).
+  //
+  // Mapped on a log/octave frequency scale rather than linear bins: this
+  // synth's music lives almost entirely below ~2-3kHz (bass/pad/lead), so
+  // a linear split (each bar = an equal slice of 0Hz-Nyquist) dumps nearly
+  // all of the audible content into the first handful of bars and leaves
+  // the rest of the bar array reading silence — a visibly flat line on one
+  // side. Spacing bars by equal frequency *ratio* instead (equal-width
+  // octaves, same idea real audio visualizers use) spreads that same
+  // content across the whole width, and caps out at a frequency ceiling
+  // this music actually reaches rather than the full Nyquist range.
+  function getSpectrum(bars) {
+    const n = bars || 32;
+    if (!analyser || !running || !ctx || ctx.state !== "running") return new Array(n).fill(0);
+    if (!freqData.arr) freqData.arr = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(freqData.arr);
+
+    const totalBins = freqData.arr.length;
+    const sampleRate = ctx.sampleRate || 44100;
+    const nyquist = sampleRate / 2;
+    const minFreq = 40;
+    const maxFreq = Math.min(nyquist, 6000); // this music has ~nothing above here
+    const binHz = nyquist / totalBins;
+    const freqToBin = (f) => Math.min(totalBins - 1, Math.max(0, Math.round(f / binHz)));
+
+    const out = new Array(n);
+    for (let i = 0; i < n; i++) {
+      // Equal-ratio (log) spacing: bar i's frequency = minFreq * (maxFreq/minFreq)^(i/n)
+      const f0 = minFreq * Math.pow(maxFreq / minFreq, i / n);
+      const f1 = minFreq * Math.pow(maxFreq / minFreq, (i + 1) / n);
+      const start = freqToBin(f0);
+      const end = Math.max(start + 1, freqToBin(f1));
+      let sum = 0;
+      for (let j = start; j < end; j++) sum += freqData.arr[j];
+      out[i] = sum / ((end - start) * 255);
+    }
+    return out;
+  }
+
   // --- Toggle button UI --------------------------------------------------
   let toggleBtn = null;
 
@@ -891,6 +931,7 @@
     isRunning: () => running && !!ctx && ctx.state === "running",
     getLevel,
     getBandLevels,
+    getSpectrum,
     playClick,
   };
 })();

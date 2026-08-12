@@ -96,13 +96,18 @@ function escapeHtml(str) {
 // The Java/Python console previews (mining-simulator, exponential-spacebar,
 // etc.) are real processes streaming real stdout, which includes genuine
 // ANSI color escape codes (confirmed: mining-simulator.jar emits standard
-// SGR codes like \x1b[31m, \x1b[40m). The console output box used to be set
-// via textContent, so those codes showed up as either literal garbage or
-// invisible control characters instead of color. This parses SGR ("Select
-// Graphic Rendition") codes into styled <span>s and drops non-color CSI
-// sequences (cursor-move / clear-screen codes like \x1b[H, \x1b[2J) outright
-// — this console is an append-only scrolling log, not a real terminal, so
-// there's nothing sensible to do with "move cursor" here.
+// SGR codes like \x1b[31m, \x1b[40m) and, for programs that clear/redraw
+// their screen, real cursor-move and clear-screen codes too.
+//
+// This is a small terminal-grid emulator, not a naive append-only pass: it
+// replays the *entire* accumulated buffer from scratch on every render
+// (both call sites already keep the raw text around and re-render it whole,
+// so this fits without changing their structure) into a 2D grid of styled
+// cells, applying SGR color/style codes plus \r, \n, backspace, tab, and
+// the cursor-move/clear-screen/clear-line CSI codes as it goes. That's what
+// makes a program's own `clear()` or a `\r`-based progress bar actually
+// look like a clear/overwrite instead of either scrolling garbage or
+// (the previous behavior) being silently dropped.
 const ANSI_STANDARD = ["#4d4d4d", "#e05561", "#3fb765", "#d7ae4e", "#5591e0", "#b56ce0", "#3fb0b0", "#d6d6d6"];
 const ANSI_BRIGHT = ["#7a7a7a", "#ff7b86", "#6fdb8f", "#ffd873", "#82b1ff", "#d99bff", "#6fdede", "#ffffff"];
 
@@ -142,29 +147,26 @@ function freshAnsiState() {
 }
 
 // eslint-disable-next-line no-control-regex
-const ANSI_CSI_RE = /\x1b\[([0-9;]*)([A-Za-z])/g;
-
 function ansiToHtml(str) {
-  let result = "";
-  let lastIndex = 0;
+  const TAB_STOP = 8;
+  let lines = [[]]; // lines[row] = array of {ch, style}
+  let row = 0;
+  let col = 0;
   let state = freshAnsiState();
-  let match;
 
-  function flush(text) {
-    if (!text) return;
-    const style = ansiSpanStyle(state);
-    const safe = escapeHtml(text);
-    result += style ? `<span style="${style}">${safe}</span>` : safe;
+  function ensureRow(r) {
+    while (lines.length <= r) lines.push([]);
+  }
+  function putChar(ch) {
+    ensureRow(row);
+    const line = lines[row];
+    while (line.length < col) line.push({ ch: " ", style: "" });
+    line[col] = { ch, style: ansiSpanStyle(state) };
+    col++;
   }
 
-  ANSI_CSI_RE.lastIndex = 0;
-  while ((match = ANSI_CSI_RE.exec(str)) !== null) {
-    flush(str.slice(lastIndex, match.index));
-    lastIndex = ANSI_CSI_RE.lastIndex;
-    const final = match[2];
-    if (final !== "m") continue; // drop cursor-move/clear-screen/etc. — see note above
-
-    const codes = match[1].length ? match[1].split(";").map(Number) : [0];
+  function applySGR(codes) {
+    if (!codes.length) codes = [0];
     for (let i = 0; i < codes.length; i++) {
       const c = codes[i];
       if (c === 0) state = freshAnsiState();
@@ -191,8 +193,104 @@ function ansiToHtml(str) {
       else if (c >= 100 && c <= 107) state.bg = ANSI_BRIGHT[c - 100];
     }
   }
-  flush(str.slice(lastIndex));
-  return result;
+
+  // Cursor-move / clear-screen / clear-line CSI codes — the part that used
+  // to be dropped outright. Implemented against a plain array-of-rows grid
+  // rather than a fixed-width buffer, since these previews don't know (or
+  // need) a real terminal column count.
+  function handleCSI(codes, final) {
+    if (final === "m") { applySGR(codes); return; }
+    if (final === "J") {
+      // Erase in display: 0 = cursor->end, 1 = start->cursor, 2/3 = everything
+      const n = codes[0] || 0;
+      if (n === 2 || n === 3) {
+        lines = [[]];
+        row = 0;
+        col = 0;
+      } else if (n === 0) {
+        ensureRow(row);
+        lines[row] = lines[row].slice(0, col);
+        lines = lines.slice(0, row + 1);
+      } else if (n === 1) {
+        for (let r = 0; r < row; r++) lines[r] = [];
+        ensureRow(row);
+        for (let c = 0; c <= col; c++) lines[row][c] = { ch: " ", style: "" };
+      }
+      return;
+    }
+    if (final === "K") {
+      // Erase in line: 0 = cursor->end, 1 = start->cursor, 2 = whole line
+      const n = codes[0] || 0;
+      ensureRow(row);
+      if (n === 0) lines[row] = lines[row].slice(0, col);
+      else if (n === 1) { for (let c = 0; c < col; c++) lines[row][c] = { ch: " ", style: "" }; }
+      else lines[row] = [];
+      return;
+    }
+    if (final === "H" || final === "f") {
+      row = Math.max(0, (codes[0] || 1) - 1);
+      col = Math.max(0, (codes[1] || 1) - 1);
+      ensureRow(row);
+      return;
+    }
+    if (final === "A") { row = Math.max(0, row - (codes[0] || 1)); return; }
+    if (final === "B") { row += codes[0] || 1; ensureRow(row); return; }
+    if (final === "C") { col += codes[0] || 1; return; }
+    if (final === "D") { col = Math.max(0, col - (codes[0] || 1)); return; }
+    // Other finals (save/restore cursor, mode toggles, etc.) intentionally
+    // ignored — not meaningful for this rendering, and safe to no-op.
+  }
+
+  let i = 0;
+  while (i < str.length) {
+    const ch = str[i];
+    if (ch === "\x1b" && str[i + 1] === "[") {
+      let j = i + 2;
+      while (j < str.length && !/[A-Za-z]/.test(str[j])) j++;
+      if (j < str.length) {
+        const params = str.slice(i + 2, j);
+        const final = str[j];
+        const codes = params.length ? params.split(";").filter((s) => s !== "").map(Number) : [];
+        handleCSI(codes, final);
+        i = j + 1;
+        continue;
+      }
+      break; // unterminated escape at the tail of a still-streaming buffer
+    }
+    if (ch === "\n") { row++; col = 0; ensureRow(row); i++; continue; }
+    if (ch === "\r") { col = 0; i++; continue; }
+    if (ch === "\b") { if (col > 0) col--; i++; continue; }
+    if (ch === "\x07") { i++; continue; } // bell — nothing to render
+    if (ch === "\t") { col = Math.ceil((col + 1) / TAB_STOP) * TAB_STOP; i++; continue; }
+    putChar(ch);
+    i++;
+  }
+
+  // Render the grid: consecutive same-style cells on a row collapse into a
+  // single <span>; rows join on real newlines since the container is a
+  // white-space:pre <pre> element.
+  const rowsHtml = lines.map((line) => {
+    if (!line.length) return "";
+    let out = "";
+    let runStyle = null;
+    let run = "";
+    const flushRun = () => {
+      if (!run) return;
+      out += runStyle ? `<span style="${runStyle}">${escapeHtml(run)}</span>` : escapeHtml(run);
+      run = "";
+    };
+    for (const cell of line) {
+      const cellStyle = cell.style || null;
+      if (cellStyle !== runStyle) {
+        flushRun();
+        runStyle = cellStyle;
+      }
+      run += cell.ch;
+    }
+    flushRun();
+    return out;
+  });
+  return rowsHtml.join("\n");
 }
 
 // --- Python projects, via Pyodide (fully client-side) --------------------

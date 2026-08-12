@@ -49,6 +49,8 @@
       <p class="project-tagline">{{ project.tagline }}</p>
       {% if sort == 'loc' and loc_by_project.get(project.slug) %}
       <p class="project-loc">{{ "{:,}".format(loc_by_project[project.slug]) }} lines</p>
+      {% elif sort == 'created' and project.created %}
+      <p class="project-created">{{ project.created }}</p>
       {% endif %}
       {{ render_tags(project) }}
       <div class="project-actions">

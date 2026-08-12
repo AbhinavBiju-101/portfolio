@@ -79,7 +79,10 @@ body {
   position: fixed;
   right: 1.25rem;
   bottom: 1.25rem;
-  z-index: 40;
+  /* Above the preview modal / lightbox (both z-index: 100) so it stays
+     reachable while a project preview is open, instead of being covered
+     by the modal's backdrop. */
+  z-index: 150;
   width: 42px;
   height: 42px;
   display: flex;
@@ -111,6 +114,45 @@ body {
     width: 38px;
     height: 38px;
   }
+}
+
+/* Small honest note shown only while autoplay is genuinely blocked by the
+   browser (see attemptAutoStart() in audio.js) — explains the one-time tap
+   requirement instead of leaving it invisible. Sits just above the toggle
+   button and fades away the moment audio unlocks (or after a timeout). */
+#audio-unlock-hint {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 4.1rem;
+  z-index: 150;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--radius, 6px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  animation: audio-hint-in 0.3s ease;
+}
+#audio-unlock-hint.is-leaving {
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+@keyframes audio-hint-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 560px) {
+  #audio-unlock-hint {
+    right: 0.85rem;
+    bottom: 3.5rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #audio-unlock-hint { animation: none; }
+  #audio-unlock-hint.is-leaving { transition: none; }
 }
 
 a { color: var(--accent); text-decoration: none; }
@@ -283,6 +325,7 @@ code {
 .project-filter-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 1rem; }
 .project-sort-label { font-size: 0.8rem; color: var(--text-dim); margin-right: 0.15rem; }
 .project-loc { font-size: 0.78rem; color: var(--accent); font-family: monospace; margin: 0.2rem 0 0; }
+.project-created { font-size: 0.78rem; color: var(--text-dim); margin: 0.2rem 0 0; }
 .project-filter-toggle a {
   font-size: 0.85rem;
   padding: 0.3rem 0.8rem;
@@ -687,6 +730,66 @@ code {
 .cert-credential-link { display: inline-block; font-size: 0.85rem; margin-top: 0.4rem; }
 .cert-credential-id { display: block; font-size: 0.8rem; color: var(--text-dim); margin-top: 0.4rem; }
 .cert-card-body .skill-tags { margin: 0 0 0.4rem; }
+
+/* --- Links page --------------------------------------------------------- */
+.links-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+.link-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.link-card:hover {
+  border-color: var(--accent-dim);
+  transform: translateY(-2px);
+}
+.link-badge {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: #0c0d10;
+  background: var(--accent);
+}
+/* A distinct tint per platform so the grid isn't a wall of identical
+   badges — generic colored initials rather than reproducing each site's
+   actual trademarked logo mark. */
+.link-badge[data-icon="github"] { background: #8b98a8; }
+.link-badge[data-icon="linkedin"] { background: #5591e0; }
+.link-badge[data-icon="leetcode"] { background: #d7ae4e; }
+.link-badge[data-icon="hackerrank"] { background: #3fb765; }
+.link-badge[data-icon="replit"] { background: #e0895a; }
+.link-badge[data-icon="scratch"] { background: #d7ae4e; }
+.link-card-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.link-platform { font-weight: 600; }
+.link-handle { color: var(--text-dim); font-size: 0.85rem; font-family: monospace; }
+.link-note { color: var(--text-dim); font-size: 0.82rem; margin-top: 0.15rem; }
+.link-arrow {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 1.1rem;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+.link-card:hover .link-arrow { color: var(--accent); transform: translateX(3px); }
 
 /* --- Section divider (Certifications -> Achievements) ----------------- */
 .section-divider {

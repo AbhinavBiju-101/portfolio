@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Links — Portfolio{% endblock %}
+{% block content %}
+<section class="page-head">
+  <h1>Links</h1>
+  <p>Other places to find me.</p>
+</section>
+
+<section class="links-grid">
+  {% for link in links %}
+  <a class="link-card" href="{{ link.url }}" target="_blank" rel="noopener">
+    <span class="link-badge" data-icon="{{ link.icon or link.platform|lower }}" aria-hidden="true">{{ link.platform[0] }}</span>
+    <span class="link-card-body">
+      <span class="link-platform">{{ link.platform }}</span>
+      {% if link.handle %}<span class="link-handle">{{ link.handle }}</span>{% endif %}
+      {% if link.note %}<span class="link-note">{{ link.note }}</span>{% endif %}
+    </span>
+    <span class="link-arrow" aria-hidden="true">&rarr;</span>
+  </a>
+  {% else %}
+  <p>No links yet — add some to the <code>LINKS</code> list in <code>app.py</code>.</p>
+  {% endfor %}
+</section>
+{% endblock %}

@@ -809,25 +809,7 @@
     updateToggleUI(enabled);
 
     if (enabled) {
-      // A fresh page load isn't itself a "user gesture" in every browser,
-      // so autoplay may still be blocked on the very first visit even
-      // though sound is on by default. ensureContext()+resume() here
-      // covers browsers that do allow it outright (including, in Chrome,
-      // any later page once you've interacted with this site once before —
-      // that permission is remembered per-origin, not per-page). The
-      // listener below silently catches everything else on the very next
-      // interaction of *any* kind, anywhere on the page — not just the
-      // audio toggle — so in practice a single click/tap/keypress anywhere
-      // on the site is enough to have music running from then on.
-      ensureContext();
-      startMusic();
-      const resumeOnce = () => {
-        if (ctx && ctx.state === "suspended") ctx.resume();
-        if (!running) startMusic();
-        events.forEach((ev) => document.removeEventListener(ev, resumeOnce));
-      };
-      const events = ["pointerdown", "keydown", "touchstart", "wheel"];
-      events.forEach((ev) => document.addEventListener(ev, resumeOnce, { once: true, passive: true }));
+      attemptAutoStart();
     }
 
     // Click SFX itself is triggered from mouse-glow.js's single site-wide
@@ -835,6 +817,72 @@
     // the on-screen click disturbance always fire together instead of from
     // two separate listeners that could drift out of sync.
   });
+
+  // Browsers refuse to let a page start audible sound before the person has
+  // interacted with the *browser tab* in some way — that's a deliberate,
+  // universal anti-annoyance rule (Chrome, Firefox, and Safari all enforce
+  // it) and no page-side trick actually bypasses it, so "truly zero
+  // interaction, ever" isn't achievable here. What this does do:
+  //   - tries to start immediately on every page, which succeeds outright
+  //     in the (common, after the very first visit) case where the browser
+  //     has already granted this origin audio permission — Chrome and
+  //     Firefox both remember "this site has been interacted with" for the
+  //     rest of the browsing session, not just for the current page, so in
+  //     practice one click anywhere on the very first page is enough for
+  //     every later page/navigation to just start playing with no click at
+  //     all.
+  //   - if still blocked, arms a one-time listener on pointerdown/keydown/
+  //     touchstart/wheel — not just a click on the toggle button — so any
+  //     interaction anywhere unlocks it.
+  //   - shows a small, honest "tap to start music" pill (see below) only
+  //     while genuinely blocked, so the requirement is visible/explained
+  //     instead of silently doing nothing.
+  function attemptAutoStart() {
+    ensureContext();
+    startMusic();
+    if (ctx && ctx.state === "running") return; // unblocked already — done
+
+    showUnlockHint();
+    const resumeOnce = () => {
+      if (ctx && ctx.state === "suspended") ctx.resume();
+      if (!running) startMusic();
+      hideUnlockHint();
+      events.forEach((ev) => document.removeEventListener(ev, resumeOnce));
+    };
+    const events = ["pointerdown", "keydown", "touchstart", "wheel"];
+    events.forEach((ev) => document.addEventListener(ev, resumeOnce, { once: true, passive: true }));
+  }
+
+  // Pages restored from the browser's back/forward cache (bfcache) don't
+  // re-fire DOMContentLoaded, and a backgrounded AudioContext is sometimes
+  // auto-suspended by the browser on the way in/out — this catches both by
+  // re-checking on pageshow.
+  window.addEventListener("pageshow", (e) => {
+    if (!isEnabled()) return;
+    if (e.persisted && (!ctx || ctx.state !== "running")) {
+      attemptAutoStart();
+    }
+  });
+
+  let unlockHintEl = null;
+  function showUnlockHint() {
+    if (unlockHintEl || !document.body) return;
+    const el = document.createElement("div");
+    el.id = "audio-unlock-hint";
+    el.textContent = "Tap anywhere for music";
+    el.setAttribute("role", "status");
+    document.body.appendChild(el);
+    unlockHintEl = el;
+    // Don't nag forever if it's genuinely never going to be tapped.
+    setTimeout(hideUnlockHint, 8000);
+  }
+  function hideUnlockHint() {
+    if (!unlockHintEl) return;
+    unlockHintEl.classList.add("is-leaving");
+    const el = unlockHintEl;
+    unlockHintEl = null;
+    setTimeout(() => el.remove(), 400);
+  }
 
   // Exposed for other widgets (the mouse glow, for instance) to sync to the
   // music without re-implementing any Web Audio plumbing themselves.

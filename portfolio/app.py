@@ -1583,6 +1583,63 @@ CERTIFICATIONS = [
     },
 ]
 
+# LINKS — other profiles worth pointing people to (GitHub, LinkedIn, coding-
+# practice sites, etc.), shown on the /links page.
+#   "platform"  -> display name, e.g. "GitHub"
+#   "handle"    -> the @username/handle shown under the platform name
+#   "url"       -> full profile URL
+#   "note"      -> optional short description of what's there
+#   "icon"      -> one of the keys in LINK_ICONS below, for the little
+#                  glyph next to each card; falls back to the platform's
+#                  first letter if omitted or unrecognized
+# The GitHub and LinkedIn URLs below are pulled from the footer, which
+# already had them; the rest are placeholders — swap in the real profile
+# URLs (and drop any platform not actually used).
+LINKS = [
+    {
+        "platform": "GitHub",
+        "handle": "@FTHZS",
+        "url": "https://github.com/FTHZS",
+        "note": "Most of the projects on this site, plus everything else.",
+        "icon": "github",
+    },
+    {
+        "platform": "LinkedIn",
+        "handle": "i-am-abhinav-biju",
+        "url": "https://www.linkedin.com/in/i-am-abhinav-biju/",
+        "note": "Professional profile and updates.",
+        "icon": "linkedin",
+    },
+    {
+        "platform": "LeetCode",
+        "handle": "@your-handle",
+        "url": "https://leetcode.com/u/your-handle/",
+        "note": "Problem-solving practice.",
+        "icon": "leetcode",
+    },
+    {
+        "platform": "HackerRank",
+        "handle": "@your-handle",
+        "url": "https://www.hackerrank.com/profile/your-handle",
+        "note": "Includes the Orchestrate hackathon submission.",
+        "icon": "hackerrank",
+    },
+    {
+        "platform": "Replit",
+        "handle": "@your-handle",
+        "url": "https://replit.com/@your-handle",
+        "note": "Where a few of these projects were originally built.",
+        "icon": "replit",
+    },
+    {
+        "platform": "Scratch",
+        "handle": "your-handle",
+        "url": "https://scratch.mit.edu/users/your-handle/",
+        "note": "Early projects.",
+        "icon": "scratch",
+    },
+]
+
 # ACHIEVEMENTS — anything else worth highlighting that isn't a formal
 # credential: hackathon placements, competition results, scholarships,
 # published work, internships, notable recognitions, etc.
@@ -2076,6 +2133,11 @@ def about():
 @app.route("/skills")
 def skills():
     return render_template("skills.html", active="skills", languages=LANGUAGES, skills=SKILLS)
+
+
+@app.route("/links")
+def links():
+    return render_template("links.html", active="links", links=LINKS)
 
 
 @app.route("/certifications")

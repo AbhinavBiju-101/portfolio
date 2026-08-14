@@ -558,33 +558,35 @@ PROJECTS = [
         "slug": "skynetgrid",
         "pinned": False,
         "name": "SkynetGrid",
-        "tagline": "A remote lab-administration suite — deployed with school approval to a computer lab for remote screen viewing, input control, and terminal access.",
-        "created": "December 2025",
-        "updated": "TBD",
+        "tagline": "A distributed remote-administration suite — deployed with school approval on a computer lab, evolving across 34 iterations into a full lab-admin console.",
+        "created": "December 2024",
+        "updated": "August 2025",
         "description": (
-            "A distributed remote-administration system, version 44 as of "
-            "the last iteration, built to test real Java networking in a "
-            "real environment — deployed, with school approval, on a "
-            "computer lab to let admins remotely view a connected "
-            "machine's screen, take control of its mouse and keyboard, "
-            "run terminal commands, and transfer files, mainly for "
-            "keeping an eye on lab misuse. Each machine runs a **Node** "
-            "that auto-discovers and connects to a central **Server**, "
-            "which tracks connected clients and routes requests between "
-            "them over TCP, alongside UDP for discovery and broadcast "
-            "messages.\n\n"
-            "It's managed through `systemd` so it starts automatically on "
-            "boot and responds to standard service commands (`start`, "
-            "`stop`, `restart`, `status`), and — since it's meant to run "
-            "continuously as an always-on administrative service rather "
-            "than something a lab user could casually switch off — it's "
-            "hardened against being accidentally or informally removed, "
-            "and can back itself up and relocate its own install path "
-            "without manual reconfiguration. A Swing GUI, with its own "
-            "file explorer, sits on top for interacting with connected "
-            "nodes visually instead of through raw commands.\n\n"
-            "It's held up through multiple rounds of improvement since "
-            "first going live in the lab."
+            "A distributed remote-administration system written in Java — a "
+            "**Server** hub, lightweight **Node** clients, and a Swing **GUI** "
+            "admin console, communicating over a custom TCP/UDP protocol. "
+            "Built to learn real networking by solving an actual problem: "
+            "deployed, with school staff sign-off, on a computer lab, where "
+            "it evolved across 34 iterations into a full lab-administration "
+            "console.\n\n"
+            "Nodes auto-discover the Server over LAN broadcast; if none is "
+            "running, a node elects itself and boots the hub locally — no "
+            "manual server setup on any machine. The GUI console streams live "
+            "screen views over TCP (with perceptual-hash change detection so "
+            "idle screens don't waste bandwidth), relays mouse and keyboard "
+            "events to the target node via `java.awt.Robot`, and exposes a "
+            "full remote **File Explorer** with browse, download, upload, "
+            "rename, delete, and zip-and-download. A separate **Run Query** "
+            "panel runs arbitrary terminal commands on any selected node and "
+            "routes the output back. Screen recording saves to a hand-rolled "
+            "AVI (RIFF/MJPEG) container with no external codec dependencies.\n\n"
+            "Control messages, screen frames, and file transfers each use "
+            "separate connections so a large upload never stalls a live view. "
+            "Async request/response calls (`CompletableFuture`, keyed per "
+            "request) let a node fire a query and keep handling other traffic "
+            "while it waits. Runs as a `systemd` user service — starts on "
+            "boot, restarts on failure, and can back up and relocate its own "
+            "install directory if moved."
         ),
         "download_file": "skynetgrid.zip",
         "languages": ["Java"],
@@ -592,26 +594,53 @@ PROJECTS = [
         "runtime": None,
         "sections": [
             {
-                "title": "How it works",
+                "title": "Architecture",
                 "blocks": [
                     {"type": "markdown", "content": (
-                        "- A **Node** auto-discovers the server over the network "
-                        "(TCP for the control connection, UDP for discovery and "
-                        "broadcasts) and connects over a dedicated control socket "
-                        "— file transfer runs on a separate port so large "
-                        "transfers don't block regular commands\n"
-                        "- Async request/response handling uses "
-                        "`CompletableFuture`s keyed per request, so a node can "
-                        "fire off a query and keep working while it waits on a "
-                        "reply instead of blocking\n"
-                        "- Remote input events (`MOUSE_DOWN`, `MOUSE_MOVE`, ...) "
-                        "get relayed from a viewer node to the target node, which "
-                        "replays them locally — real remote control, not just a "
-                        "read-only screen view\n"
-                        "- Nodes can back themselves up and relocate their own "
-                        "install directory, and `systemd` handles the actual "
-                        "process supervision (auto-restart, boot-start, logs via "
-                        "`journalctl`)"
+                        "- Any machine can run just a **Node** (managed endpoint) "
+                        "or a **Node + GUI** (admin console) — the console starts "
+                        "its own privileged Node internally\n"
+                        "- The **Server** isn't a fixed machine — the first node "
+                        "to fail discovery locks an election port and boots the "
+                        "hub itself; later nodes connect to whoever won\n"
+                        "- UDP for LAN broadcast discovery; TCP for control, "
+                        "screen frames, and file transfers — each on separate "
+                        "connections so a large upload never stalls a live view\n"
+                        "- `CompletableFuture` keyed per request lets a node fire "
+                        "a query and keep handling other traffic while it waits "
+                        "on a reply\n"
+                        "- `systemd` user service: auto-start on boot, "
+                        "auto-restart on failure, self-backup and "
+                        "install-directory relocation if the path goes missing"
+                    )},
+                ],
+            },
+            {
+                "title": "What changed across 34 versions",
+                "blocks": [
+                    {"type": "markdown", "content": (
+                        "The project grew feature-by-feature from a single "
+                        "file-send utility into a full console. Notable "
+                        "milestones:\n\n"
+                        "- **v1–v10** — basic Node/Server TCP socket pair, "
+                        "file transfer, LAN broadcast discovery\n"
+                        "- **v17** — live screen streaming with "
+                        "perceptual-hash change detection\n"
+                        "- **v19** — remote mouse/keyboard relay via "
+                        "`java.awt.Robot` (real remote control)\n"
+                        "- **v23** — `systemd` user-service deployment, "
+                        "self-backup, install relocation\n"
+                        "- **v28** — leader election (any node can become "
+                        "the Server hub)\n"
+                        "- **v30** — screen recording to hand-rolled "
+                        "RIFF/MJPEG AVI container\n"
+                        "- **v32–v33** — remote File Explorer, rewritten "
+                        "into a full class with hand-drawn file-type icons, "
+                        "image preview, folder zip-download\n"
+                        "- **v34** — light/dark theme switcher; "
+                        "`RoundedButton` refactored around an explicit "
+                        "`State`/`Theme` model; `queryResultHandlers` map "
+                        "for concurrent remote queries"
                     )},
                 ],
             },
@@ -619,13 +648,14 @@ PROJECTS = [
                 "title": "Why no live preview",
                 "blocks": [
                     {"type": "markdown", "content": (
-                        "This one's a background networking service with a GUI, "
-                        "not a console app — it opens sockets between real "
-                        "machines and manages a `systemd` service on the host "
-                        "it's running on. That's not something that makes sense "
-                        "to spin up automatically for site visitors, so there's "
-                        "no in-browser preview here — download the source to try "
-                        "it on your own machines instead."
+                        "SkynetGrid is a background networking service — it opens "
+                        "sockets between real machines, relays raw input events, "
+                        "and manages a `systemd` service on the host it's running "
+                        "on. That's not something to spin up automatically for "
+                        "site visitors. The screenshots above were taken from a "
+                        "demo build that runs the full GUI against hardcoded fake "
+                        "nodes — all UI code is real, no networking needed. "
+                        "Download the source to run it on your own machines."
                     )},
                 ],
             },

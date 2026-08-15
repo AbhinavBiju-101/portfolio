@@ -6,7 +6,41 @@
   <p>Formal credentials, plus other things worth calling out that aren't a project or a course.</p>
 </section>
 
-<section class="cert-grid">
+<section class="achievements">
+  <h2 class="timeline-heading">Achievements</h2>
+  {% if achievement_categories %}
+  <div class="project-filter-toggle achievement-filter">
+    <a href="{{ url_for('certifications') }}" class="{{ 'is-active' if not active_category }}">All</a>
+    {% for cat in achievement_categories %}
+    <a href="{{ url_for('certifications', category=cat) }}" class="{{ 'is-active' if active_category == cat }}">{{ cat }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <ol class="timeline-list">
+    {% for item in achievements %}
+    <li class="timeline-item">
+      <span class="timeline-date">{{ item.date }}</span>
+      <div class="timeline-body">
+        <h3>{{ item.title }}{% if item.category %} <span class="achievement-category-tag">{{ item.category }}</span>{% endif %}</h3>
+        {% if item.image %}
+        <button type="button" class="zoomable-trigger timeline-image-trigger" data-full="{{ url_for('static', filename='images/certifications/' + item.image) }}">
+          <img src="{{ url_for('static', filename='images/certifications/' + item.image) }}" alt="{{ item.title }}" loading="lazy">
+        </button>
+        {% endif %}
+        {{ item.description|markdownify|safe }}
+      </div>
+    </li>
+    {% else %}
+    <li><p>{% if active_category %}No achievements in "{{ active_category }}" yet.{% else %}No achievements yet — add some to the <code>ACHIEVEMENTS</code> list in <code>app.py</code>.{% endif %}</p></li>
+    {% endfor %}
+  </ol>
+</section>
+
+<hr class="section-divider">
+
+<section class="cert-grid-section">
+  <h2 class="timeline-heading">Course Certificates</h2>
+  <div class="cert-grid">
   {% for cert in certifications %}
   <article class="cert-card">
     {% if cert.image %}
@@ -40,38 +74,7 @@
   {% else %}
   <p>No certifications yet — add some to the <code>CERTIFICATIONS</code> list in <code>app.py</code>.</p>
   {% endfor %}
-</section>
-
-<hr class="section-divider">
-
-<section class="achievements">
-  <h2 class="timeline-heading">Achievements</h2>
-  {% if achievement_categories %}
-  <div class="project-filter-toggle achievement-filter">
-    <a href="{{ url_for('certifications') }}" class="{{ 'is-active' if not active_category }}">All</a>
-    {% for cat in achievement_categories %}
-    <a href="{{ url_for('certifications', category=cat) }}" class="{{ 'is-active' if active_category == cat }}">{{ cat }}</a>
-    {% endfor %}
   </div>
-  {% endif %}
-  <ol class="timeline-list">
-    {% for item in achievements %}
-    <li class="timeline-item">
-      <span class="timeline-date">{{ item.date }}</span>
-      <div class="timeline-body">
-        <h3>{{ item.title }}{% if item.category %} <span class="achievement-category-tag">{{ item.category }}</span>{% endif %}</h3>
-        {% if item.image %}
-        <button type="button" class="zoomable-trigger timeline-image-trigger" data-full="{{ url_for('static', filename='images/certifications/' + item.image) }}">
-          <img src="{{ url_for('static', filename='images/certifications/' + item.image) }}" alt="{{ item.title }}" loading="lazy">
-        </button>
-        {% endif %}
-        {{ item.description|markdownify|safe }}
-      </div>
-    </li>
-    {% else %}
-    <li><p>{% if active_category %}No achievements in "{{ active_category }}" yet.{% else %}No achievements yet — add some to the <code>ACHIEVEMENTS</code> list in <code>app.py</code>.{% endif %}</p></li>
-    {% endfor %}
-  </ol>
 </section>
 
 <div id="lightbox" class="lightbox" hidden>

@@ -202,6 +202,12 @@ code {
   padding: 1.5rem 2rem;
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(20, 22, 26, 0.72);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 
 .brand {
@@ -788,20 +794,37 @@ code {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 1.15rem;
-  color: #0c0d10;
   background: var(--accent);
 }
-/* A distinct tint per platform so the grid isn't a wall of identical
-   badges — generic colored initials rather than reproducing each site's
-   actual trademarked logo mark. */
-.link-badge[data-icon="github"] { background: #8b98a8; }
-.link-badge[data-icon="linkedin"] { background: #5591e0; }
-.link-badge[data-icon="leetcode"] { background: #d7ae4e; }
-.link-badge[data-icon="hackerrank"] { background: #3fb765; }
-.link-badge[data-icon="replit"] { background: #e0895a; }
-.link-badge[data-icon="scratch"] { background: #d7ae4e; }
+.link-badge::before {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 24px;
+  background-color: #fff;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+/* Official brand colors (via simple-icons / Font Awesome) as the badge
+   background, with the real logo mark masked to white on top. */
+.link-badge[data-icon="github"] { background: #181717; }
+.link-badge[data-icon="github"]::before { -webkit-mask-image: url("/static/images/link-icons/github.svg"); mask-image: url("/static/images/link-icons/github.svg"); }
+.link-badge[data-icon="linkedin"] { background: #0a66c2; }
+.link-badge[data-icon="linkedin"]::before { -webkit-mask-image: url("/static/images/link-icons/linkedin.svg"); mask-image: url("/static/images/link-icons/linkedin.svg"); }
+.link-badge[data-icon="leetcode"] { background: #ffa116; }
+.link-badge[data-icon="leetcode"]::before { -webkit-mask-image: url("/static/images/link-icons/leetcode.svg"); mask-image: url("/static/images/link-icons/leetcode.svg"); }
+.link-badge[data-icon="hackerrank"] { background: #00863c; }
+.link-badge[data-icon="hackerrank"]::before { -webkit-mask-image: url("/static/images/link-icons/hackerrank.svg"); mask-image: url("/static/images/link-icons/hackerrank.svg"); }
+.link-badge[data-icon="scratch"] { background: #855cd6; }
+.link-badge[data-icon="scratch"]::before { -webkit-mask-image: url("/static/images/link-icons/scratch.svg"); mask-image: url("/static/images/link-icons/scratch.svg"); }
+.link-badge[data-icon="codechef"] { background: #5b4638; }
+.link-badge[data-icon="codechef"]::before { -webkit-mask-image: url("/static/images/link-icons/codechef.svg"); mask-image: url("/static/images/link-icons/codechef.svg"); }
+.link-badge[data-icon="codeforces"] { background: #1f8acb; }
+.link-badge[data-icon="codeforces"]::before { -webkit-mask-image: url("/static/images/link-icons/codeforces.svg"); mask-image: url("/static/images/link-icons/codeforces.svg"); }
 .link-card-body {
   display: flex;
   flex-direction: column;
@@ -818,7 +841,7 @@ code {
 }
 .link-card:hover .link-arrow { color: var(--accent); transform: translateX(3px); }
 
-/* --- Section divider (Certifications -> Achievements) ----------------- */
+/* --- Section divider (Achievements -> Course Certificates) ----------------- */
 .section-divider {
   border: none;
   border-top: 1px solid var(--border);
@@ -826,6 +849,7 @@ code {
 }
 
 .achievements { margin-top: 0; }
+.cert-grid-section .timeline-heading { margin-bottom: 1.5rem; }
 
 /* --- Preview modal -------------------------------------------------- */
 .preview-modal {

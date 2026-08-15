@@ -19,6 +19,8 @@
   const ctx2d = canvas.getContext("2d");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (reduceMotion) return; // a flowing drag trail is pure motion — skip outright
+  const isTouchPrimary = window.matchMedia("(pointer: coarse)").matches;
+  if (isTouchPrimary) return; // finger-drag trails read as laggy/annoying on mobile — desktop-mouse only
 
   let width, height, dpr;
   function resize() {

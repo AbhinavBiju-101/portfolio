@@ -130,7 +130,7 @@ PROJECTS = [
             "factory, nested linked lists for the turn queue, priority "
             "queues, and prototype-pattern cloning for player/enemy state."
         ),
-        "github": "FTHZS/Grimoire-Legacy",
+        "github": "AbhinavBiju-101/Grimoire-Legacy",
         "languages": ["Java"],
         "skills": ["Game Design", "Data Structures", "OOP Design"],
         "runtime": "java-console",
@@ -268,6 +268,7 @@ PROJECTS = [
     },
     {
         "slug": "mining-simulator",
+        "github": "AbhinavBiju-101/Mining-Simulator",
         "pinned": True,
         "name": "Mining Simulator",
         "tagline": "A text-based mining game — 35 minerals across 4 rarity variants each, with LCM-based weighted drop rates and persistent player accounts.",
@@ -370,6 +371,7 @@ PROJECTS = [
     },
     {
         "slug": "greed-island",
+        "github": "AbhinavBiju-101/Greed-Island",
         "pinned": True,
         "name": "Greed Island",
         "tagline": "An evolutionary simulation — 20 autonomous AI agents develop survival strategies through genetic inheritance over generations.",
@@ -556,6 +558,7 @@ PROJECTS = [
     },
     {
         "slug": "skynetgrid",
+        "github": "AbhinavBiju-101/SkynetGrid",
         "pinned": False,
         "name": "SkynetGrid",
         "tagline": "A distributed remote-administration suite — deployed with school approval on a computer lab, evolving across 34 iterations into a full lab-admin console.",
@@ -663,6 +666,7 @@ PROJECTS = [
     },
     {
         "slug": "chatroom",
+        "github": "AbhinavBiju-101/chatroom",
         "pinned": False,
         "name": "Chatroom (v11)",
         "tagline": "A LAN chatroom with a Swing GUI client, multi-client server, file transfer, and emoji support — v11 of an iterated project.",
@@ -857,6 +861,7 @@ PROJECTS = [
     },
     {
         "slug": "exponential-spacebar",
+        "github": "AbhinavBiju-101/Exponential-spacebar",
         "pinned": False,
         "name": "Exponential Spacebar",
         "tagline": "A terminal incrementer/clicker game — press spacebar to score, with accounts, a world record, and exponentially-formatted numbers.",
@@ -1174,6 +1179,7 @@ PROJECTS = [
     },
     {
         "slug": "filedashboard",
+        "github": "AbhinavBiju-101/FileDashboard",
         "pinned": False,
         "name": "File Dashboard",
         "tagline": "A local, grid-based file browser you open in your own browser — built to make previewing PDFs and everything else actually pleasant.",
@@ -1663,14 +1669,14 @@ def get_github_last_commit_month(repo):
 # certifications (delete these two once you do).
 CERTIFICATIONS = [
     {
-        "name": "Microsoft Office Specialist: PowerPoint 2016",
-        "issuer": "Microsoft",
-        "date": "Aug 2021",
-        "credential_url": "https://www.credly.com/badges/a761f4a5-31ba-44c0-a363-4e26cab83047",
-        "credential_id": "ykUm-DwBR",
-        "description": "Certified for demonstrating proficiency in Microsoft PowerPoint 2016.",
-        "skills": ["PowerPoint 2016"],
-        "image": "ms-office-specialist-ppt-2016.png",
+        "name": "Java (Basic)",
+        "issuer": "HackerRank",
+        "date": "Aug 2026",
+        "credential_url": "https://www.hackerrank.com/certificates/EB15F996D3B3",
+        "credential_id": "EB15F996D3B3",
+        "description": "Passed the HackerRank skill certification test for Java fundamentals.",
+        "skills": ["Java"],
+        "image": "hackerrank-java-basic.png",
     },
 ]
 
@@ -1689,8 +1695,8 @@ CERTIFICATIONS = [
 LINKS = [
     {
         "platform": "GitHub",
-        "handle": "@FTHZS",
-        "url": "https://github.com/FTHZS",
+        "handle": "@AbhinavBiju-101",
+        "url": "https://github.com/AbhinavBiju-101",
         "note": "Most of the projects on this site, plus everything else.",
         "icon": "github",
     },
@@ -1702,31 +1708,38 @@ LINKS = [
         "icon": "linkedin",
     },
     {
-        "platform": "LeetCode",
-        "handle": "@your-handle",
-        "url": "https://leetcode.com/u/your-handle/",
-        "note": "Problem-solving practice.",
-        "icon": "leetcode",
-    },
-    {
         "platform": "HackerRank",
-        "handle": "@your-handle",
-        "url": "https://www.hackerrank.com/profile/your-handle",
+        "handle": "@abhinav_bijupk",
+        "url": "https://www.hackerrank.com/profile/abhinav_bijupk",
         "note": "Includes the Orchestrate hackathon submission.",
         "icon": "hackerrank",
     },
     {
-        "platform": "Replit",
-        "handle": "@your-handle",
-        "url": "https://replit.com/@your-handle",
-        "note": "Where a few of these projects were originally built.",
-        "icon": "replit",
+        "platform": "CodeChef",
+        "handle": "abhinav_biju",
+        "url": "https://www.codechef.com/users/abhinav_biju",
+        "note": "Competitive programming practice.",
+        "icon": "codechef",
+    },
+    {
+        "platform": "Codeforces",
+        "handle": "abhinav.bijupk",
+        "url": "https://codeforces.com/profile/abhinav.bijupk",
+        "note": "Competitive programming practice.",
+        "icon": "codeforces",
+    },
+    {
+        "platform": "LeetCode",
+        "handle": "6nmuuC6FbB",
+        "url": "https://leetcode.com/u/6nmuuC6FbB/",
+        "note": "Problem-solving practice.",
+        "icon": "leetcode",
     },
     {
         "platform": "Scratch",
-        "handle": "your-handle",
-        "url": "https://scratch.mit.edu/users/your-handle/",
-        "note": "Early projects.",
+        "handle": "FURYMASTER31",
+        "url": "https://scratch.mit.edu/users/FURYMASTER31/",
+        "note": "Where the coding journey started.",
         "icon": "scratch",
     },
 ]

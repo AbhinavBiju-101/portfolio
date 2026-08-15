@@ -9,7 +9,7 @@
 <section class="links-grid">
   {% for link in links %}
   <a class="link-card" href="{{ link.url }}" target="_blank" rel="noopener">
-    <span class="link-badge" data-icon="{{ link.icon or link.platform|lower }}" aria-hidden="true">{{ link.platform[0] }}</span>
+    <span class="link-badge" data-icon="{{ link.icon or link.platform|lower }}" aria-hidden="true"></span>
     <span class="link-card-body">
       <span class="link-platform">{{ link.platform }}</span>
       {% if link.handle %}<span class="link-handle">{{ link.handle }}</span>{% endif %}

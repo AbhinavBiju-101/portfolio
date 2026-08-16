@@ -13,9 +13,59 @@ import sys
 import zipfile
 import markdown as md
 import requests
+import psycopg2
+import psycopg2.extras
 from datetime import datetime
 
 app = Flask(__name__)
+
+
+# --- Security headers ------------------------------------------------------
+# securityheaders.com / Mozilla Observatory both flag a totally bare Flask
+# app for missing these — none of them require any app logic, they're just
+# response headers, so there's no reason not to send them on every response.
+#
+# CSP allowances explained (kept as tight as the site's actual external
+# dependencies allow, not a blanket wildcard):
+#   - 'self' for scripts/styles by default.
+#   - cdn.jsdelivr.net: Pyodide (in-browser Python runtime for python
+#     preview projects) is loaded from here at runtime — see main.js.
+#   - cjrtnc.leaningtech.com: CheerpJ (in-browser Java runtime for the Java
+#     preview projects) is loaded from here — also main.js.
+#   - 'unsafe-eval'/'wasm-unsafe-eval': both Pyodide and CheerpJ are
+#     WASM-based language runtimes and need these to run at all; this is a
+#     known, accepted tradeoff for shipping in-browser interpreters, not an
+#     oversight. 'unsafe-inline' for style is kept because templates use a
+#     few inline style attributes (e.g. dynamic ANSI colors); consider
+#     nonces later if that inline usage grows.
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' https://cdn.jsdelivr.net https://cjrtnc.leaningtech.com 'unsafe-eval' 'wasm-unsafe-eval'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data:; "
+    "connect-src 'self' https://cdn.jsdelivr.net https://cjrtnc.leaningtech.com; "
+    "worker-src 'self' blob:; "
+    "frame-ancestors 'none'; "
+    "base-uri 'self'; "
+    "object-src 'none'"
+)
+
+
+@app.after_request
+def _set_security_headers(resp):
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    resp.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    resp.headers["Content-Security-Policy"] = _CSP
+    resp.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    resp.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+    # HSTS only makes sense over HTTPS; Render terminates TLS in front of
+    # this app (see the cloudflare/rndr-id headers in your scan), so this
+    # is safe to send unconditionally — a plain-HTTP request never reaches
+    # this app to receive it anyway.
+    resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return resp
 
 
 @app.template_filter("markdownify")
@@ -1678,6 +1728,16 @@ CERTIFICATIONS = [
         "skills": ["Java"],
         "image": "hackerrank-java-basic.png",
     },
+    {
+        "name": "Microsoft Office Specialist: PowerPoint 2016",
+        "issuer": "Microsoft",
+        "date": "Aug 2021",
+        "credential_url": "https://www.credly.com/badges/a761f4a5-31ba-44c0-a363-4e26cab83047",
+        "credential_id": "ykUm-DwBR",
+        "description": "Certified for demonstrating proficiency in Microsoft PowerPoint 2016.",
+        "skills": ["PowerPoint 2016"],
+        "image": "ms-office-specialist-ppt-2016.png",
+    },
 ]
 
 # LINKS — other profiles worth pointing people to (GitHub, LinkedIn, coding-
@@ -2420,6 +2480,302 @@ def _flusher_thread(is_alive, q, buf, buf_lock):
         time.sleep(READER_FLUSH_INTERVAL)
         with buf_lock:
             _flush_chunk(q, buf)
+
+
+# ---------------------------------------------------------------------------
+# PREVIEW PERSISTENCE — a tiny internal JSON API backing Mining Simulator's
+# accounts and Exponential Spacebar's accounts/world-record, so that data
+# survives redeploys/restarts instead of living in a file on the container's
+# ephemeral disk. Backed by Postgres via DATABASE_URL if set; if it's unset
+# (e.g. local dev without a DB handy), these endpoints respond with a clear
+# 503 rather than crashing the whole app, and the games surface that as a
+# normal "couldn't reach the server" message instead of a stack trace.
+#
+# LOOPBACK-ONLY ON PURPOSE: these endpoints are meant to be called by the
+# preview game subprocess running on this exact machine (see preview_start
+# below — it's a real `java`/`python` process spawned locally, not a
+# frontend fetch), not by arbitrary internet requests. Restricting to
+# 127.0.0.1 keeps randoms from scripting requests directly against
+# /api/mining-simulator/... to stuff the world-record table with junk.
+DATABASE_URL = os.environ.get("DATABASE_URL")
+_db_initialized = False
+_db_init_lock = threading.Lock()
+
+
+def get_db_connection():
+    if not DATABASE_URL:
+        return None
+    return psycopg2.connect(DATABASE_URL)
+
+
+def _ensure_preview_db_schema():
+    """Creates the tables these preview APIs need, if they don't already
+    exist. Runs once per process (guarded by _db_initialized), lazily on
+    first API call rather than at import time, so a missing/unreachable
+    DATABASE_URL doesn't prevent the rest of the site from starting up."""
+    global _db_initialized
+    if _db_initialized or not DATABASE_URL:
+        return
+    with _db_init_lock:
+        if _db_initialized:
+            return
+        conn = get_db_connection()
+        try:
+            with conn, conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS mining_simulator_users (
+                        username TEXT PRIMARY KEY,
+                        password TEXT NOT NULL,
+                        join_date TEXT NOT NULL,
+                        blocks_mined INTEGER NOT NULL DEFAULT 0,
+                        events_activated INTEGER NOT NULL DEFAULT 0,
+                        toggle_delay BOOLEAN NOT NULL DEFAULT TRUE,
+                        rarest_ore_discovered TEXT NOT NULL DEFAULT 'None',
+                        inventory JSONB NOT NULL DEFAULT '[]'::jsonb
+                    );
+                """)
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS exponential_spacebar_users (
+                        username TEXT PRIMARY KEY,
+                        password TEXT NOT NULL,
+                        highscore INTEGER NOT NULL DEFAULT 0,
+                        experience REAL NOT NULL DEFAULT 0
+                    );
+                """)
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS exponential_spacebar_world (
+                        id INTEGER PRIMARY KEY,
+                        best_score INTEGER NOT NULL DEFAULT 0,
+                        holder TEXT NOT NULL DEFAULT ''
+                    );
+                """)
+                cur.execute("""
+                    INSERT INTO exponential_spacebar_world (id, best_score, holder)
+                    VALUES (1, 0, '')
+                    ON CONFLICT (id) DO NOTHING;
+                """)
+            _db_initialized = True
+        finally:
+            conn.close()
+
+
+def _loopback_only():
+    """Returns a Flask error response if the caller isn't the local
+    machine, else None. request.remote_addr reflects the direct TCP peer;
+    since these preview subprocesses talk to 127.0.0.1 directly (not
+    through Render's edge proxy), this is a real, not-spoofable check —
+    an external request would show the proxy's address, not localhost."""
+    if request.remote_addr not in ("127.0.0.1", "::1"):
+        abort(404)
+    return None
+
+
+def _preview_db_or_503():
+    """Common preamble for every preview-persistence route: 404s non-local
+    callers, ensures the schema exists, and returns a live connection —
+    or a (None, response) pair with a 503 explaining why, so every route
+    doesn't have to repeat this same three-step dance."""
+    _loopback_only()
+    if not DATABASE_URL:
+        return None, jsonify({"error": "No persistent storage configured (DATABASE_URL unset)."}), 503
+    try:
+        _ensure_preview_db_schema()
+        conn = get_db_connection()
+    except Exception as e:
+        return None, jsonify({"error": f"Couldn't reach the database: {e}"}), 503
+    return conn, None, None
+
+
+# --- Mining Simulator ------------------------------------------------------
+
+@app.route("/api/mining-simulator/user/<username>", methods=["GET"])
+def ms_get_user(username):
+    conn, err_resp, err_code = _preview_db_or_503()
+    if conn is None:
+        return err_resp, err_code
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT username, password, join_date, blocks_mined, events_activated, "
+                "toggle_delay, rarest_ore_discovered, inventory "
+                "FROM mining_simulator_users WHERE username = %s",
+                (username,),
+            )
+            row = cur.fetchone()
+        if row is None:
+            return jsonify({"error": "not found"}), 404
+        return jsonify(dict(row))
+    finally:
+        conn.close()
+
+
+@app.route("/api/mining-simulator/user", methods=["POST"])
+def ms_create_user(username=None):
+    conn, err_resp, err_code = _preview_db_or_503()
+    if conn is None:
+        return err_resp, err_code
+    data = request.get_json(force=True, silent=True) or {}
+    required = ["username", "password", "join_date"]
+    if not all(k in data for k in required):
+        conn.close()
+        return jsonify({"error": f"missing required field(s): {required}"}), 400
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO mining_simulator_users "
+                "(username, password, join_date, blocks_mined, events_activated, "
+                " toggle_delay, rarest_ore_discovered, inventory) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                (
+                    data["username"], data["password"], data["join_date"],
+                    data.get("blocks_mined", 0), data.get("events_activated", 0),
+                    data.get("toggle_delay", True), data.get("rarest_ore_discovered", "None"),
+                    json.dumps(data.get("inventory", [])),
+                ),
+            )
+        return jsonify({"ok": True}), 201
+    except psycopg2.errors.UniqueViolation:
+        return jsonify({"error": "username already exists"}), 409
+    finally:
+        conn.close()
+
+
+@app.route("/api/mining-simulator/user/<username>", methods=["PUT"])
+def ms_save_user(username):
+    conn, err_resp, err_code = _preview_db_or_503()
+    if conn is None:
+        return err_resp, err_code
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute(
+                "UPDATE mining_simulator_users SET "
+                "blocks_mined = %s, events_activated = %s, toggle_delay = %s, "
+                "rarest_ore_discovered = %s, inventory = %s "
+                "WHERE username = %s",
+                (
+                    data.get("blocks_mined", 0), data.get("events_activated", 0),
+                    data.get("toggle_delay", True), data.get("rarest_ore_discovered", "None"),
+                    json.dumps(data.get("inventory", [])), username,
+                ),
+            )
+            updated = cur.rowcount
+        if updated == 0:
+            return jsonify({"error": "not found"}), 404
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+
+# --- Exponential Spacebar ---------------------------------------------------
+
+@app.route("/api/exponential-spacebar/user/<username>", methods=["GET"])
+def es_get_user(username):
+    conn, err_resp, err_code = _preview_db_or_503()
+    if conn is None:
+        return err_resp, err_code
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT username, password, highscore, experience "
+                "FROM exponential_spacebar_users WHERE username = %s",
+                (username,),
+            )
+            row = cur.fetchone()
+        if row is None:
+            return jsonify({"error": "not found"}), 404
+        return jsonify(dict(row))
+    finally:
+        conn.close()
+
+
+@app.route("/api/exponential-spacebar/user", methods=["POST"])
+def es_create_user():
+    conn, err_resp, err_code = _preview_db_or_503()
+    if conn is None:
+        return err_resp, err_code
+    data = request.get_json(force=True, silent=True) or {}
+    if "username" not in data or "password" not in data:
+        conn.close()
+        return jsonify({"error": "missing required field(s): ['username', 'password']"}), 400
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO exponential_spacebar_users (username, password, highscore, experience) "
+                "VALUES (%s, %s, %s, %s)",
+                (data["username"], data["password"], data.get("highscore", 0), data.get("experience", 0)),
+            )
+        return jsonify({"ok": True}), 201
+    except psycopg2.errors.UniqueViolation:
+        return jsonify({"error": "username already exists"}), 409
+    finally:
+        conn.close()
+
+
+@app.route("/api/exponential-spacebar/user/<username>", methods=["PUT"])
+def es_save_user(username):
+    conn, err_resp, err_code = _preview_db_or_503()
+    if conn is None:
+        return err_resp, err_code
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute(
+                "UPDATE exponential_spacebar_users SET highscore = %s, experience = %s WHERE username = %s",
+                (data.get("highscore", 0), data.get("experience", 0), username),
+            )
+            updated = cur.rowcount
+        if updated == 0:
+            return jsonify({"error": "not found"}), 404
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+
+@app.route("/api/exponential-spacebar/world-best", methods=["GET"])
+def es_get_world_best():
+    conn, err_resp, err_code = _preview_db_or_503()
+    if conn is None:
+        return err_resp, err_code
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT best_score, holder FROM exponential_spacebar_world WHERE id = 1")
+            row = cur.fetchone()
+        return jsonify(dict(row) if row else {"best_score": 0, "holder": ""})
+    finally:
+        conn.close()
+
+
+@app.route("/api/exponential-spacebar/world-best", methods=["PUT"])
+def es_set_world_best():
+    """Only actually updates the record if the submitted score beats the
+    current one — the check-and-set happens inside a single UPDATE...WHERE
+    so two simultaneous players can't race each other into an inconsistent
+    state (the DB's row-level locking during the UPDATE serializes it)."""
+    conn, err_resp, err_code = _preview_db_or_503()
+    if conn is None:
+        return err_resp, err_code
+    data = request.get_json(force=True, silent=True) or {}
+    score = data.get("score")
+    holder = data.get("holder", "")
+    if not isinstance(score, int):
+        conn.close()
+        return jsonify({"error": "score must be an integer"}), 400
+    try:
+        with conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "UPDATE exponential_spacebar_world SET best_score = %s, holder = %s "
+                "WHERE id = 1 AND best_score < %s "
+                "RETURNING best_score, holder",
+                (score, holder, score),
+            )
+            updated = cur.fetchone()
+            if updated is None:
+                cur.execute("SELECT best_score, holder FROM exponential_spacebar_world WHERE id = 1")
+                updated = cur.fetchone()
+        return jsonify(dict(updated))
+    finally:
+        conn.close()
 
 
 @app.route("/preview/<slug>/start", methods=["POST"])

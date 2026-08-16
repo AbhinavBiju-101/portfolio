@@ -202,12 +202,48 @@ code {
   padding: 1.5rem 2rem;
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
-  position: sticky;
+}
+
+/* --- Hover-reveal header --------------------------------------------
+   The original .site-header above scrolls away with the page, exactly
+   like before — kept as-is on purpose since that's the behavior that
+   works well on mobile (no hover concept there anyway). This second
+   header is a separate, purely desktop-mouse convenience: nudge the
+   cursor to the very top edge of the viewport and a translucent,
+   blurred nav slides down so you don't have to scroll back up. It's
+   pinned off-screen (translateY(-100%)) by default everywhere,
+   including mobile, and only the (hover: hover) media query below ever
+   moves it — so touch devices never see it at all. */
+.header-hover-trigger {
+  position: fixed;
   top: 0;
-  z-index: 50;
+  left: 0;
+  right: 0;
+  height: 28px;
+  z-index: 59;
+}
+.hover-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 2rem;
+  border-bottom: 1px solid var(--border);
   background: rgba(20, 22, 26, 0.72);
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
+  transform: translateY(-100%);
+  transition: transform 0.28s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .header-hover-trigger:hover ~ .hover-header,
+  .hover-header:hover {
+    transform: translateY(0);
+  }
 }
 
 .brand {

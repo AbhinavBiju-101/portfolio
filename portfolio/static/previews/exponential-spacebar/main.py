@@ -10,12 +10,17 @@
 #
 # Neither works over a piped browser terminal (no real keyboard to hook,
 # no REPLIT_DB_URL to talk to), so this build swaps in:
-#   - a JSON-file-backed stand-in for replit.db (accounts.json, next to
-#     this script), kept behind the same `db[key]`, `db[key].value`,
-#     `.copy()` interface the real code uses, so the game logic below is
-#     otherwise untouched. Accounts, personal bests, and the world record
-#     persist across preview sessions the same way they would against the
-#     real replit.db — this file is the actual save data, not a cache.
+#   - a stand-in for replit.db that talks to this portfolio site's own
+#     internal API (see app.py's /api/exponential-spacebar/... routes)
+#     instead of replit's hosted store, kept behind the same `db[key]`,
+#     `db[key].value`, `.copy()`, `key in db` interface the real code
+#     uses, so the game logic below is otherwise untouched. Accounts,
+#     personal bests, and the world record persist in Postgres, backing
+#     the site itself — this survives redeploys, unlike a local file
+#     would. This script runs as a real server-side subprocess (see
+#     preview_start in app.py, runtime "python-console" -> the same
+#     handler java-console uses), so "the server" is always reachable at
+#     127.0.0.1 on whatever port Flask bound to.
 #   - reading a line from stdin each turn instead of a raw key hook —
 #     press Enter (or type "space") for a point, type "x" to quit, matching
 #     how every other console preview on this site takes input
@@ -25,7 +30,7 @@
 # Everything else — the login/signup flow, the scoring, the big-number
 # formatting, the boost/exp math — is the same as the real game. Passwords
 # are hashed before hitting disk here (the real replit.db build stored them
-# in plain text, which is fine for a private Repl but not for a file that
+# in plain text, which is fine for a private Repl but not for a store that
 # world-visitors' preview sessions all read/write).
 #-------------------------------------------------------------
 #imports
@@ -36,67 +41,50 @@ import math
 import os
 import json
 import hashlib
+import urllib.request
+import urllib.error
+import urllib.parse
 from colors import *
 
 #-------------------------------------------------------------
-# JSON-file-backed stand-in for replit.db — same interface the real code
+# Networked stand-in for replit.db — same interface the real code
 # expects: db[key], db[key] = value, db[key].value, and dict-like values
-# that support .copy(). Every read/write goes straight to accounts.json
-# under a file lock (rather than caching in memory), since each preview
-# session is its own OS process — one per visitor/tab — all sharing this
-# one store, and the login/world-record feature only means something if
-# concurrent sessions actually see each other's writes.
+# that support .copy(), plus `key in db`. Backed by this portfolio site's
+# own /api/exponential-spacebar/... endpoints (Postgres underneath) rather
+# than a local file, since a local file wouldn't survive a redeploy —
+# see app.py for the actual persistence + schema.
 
-_STORE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "accounts.json")
-_LOCK_PATH = _STORE_PATH + ".lock"
-
-
-def _with_lock(fn):
-    """Run fn() while holding an exclusive lock on the store, so two
-    preview sessions writing at once (e.g. both updating the world
-    record) can't clobber each other. Best-effort on non-POSIX platforms
-    where fcntl isn't available."""
-    lock_fh = open(_LOCK_PATH, "a+")
-    try:
-        try:
-            import fcntl
-            fcntl.flock(lock_fh, fcntl.LOCK_EX)
-        except ImportError:
-            pass
-        return fn()
-    finally:
-        try:
-            import fcntl
-            fcntl.flock(lock_fh, fcntl.LOCK_UN)
-        except ImportError:
-            pass
-        lock_fh.close()
-
-
-def _read_store():
-    if not os.path.exists(_STORE_PATH):
-        return {"World best": 0}
-    try:
-        with open(_STORE_PATH, "r") as f:
-            data = json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return {"World best": 0}
-    if "World best" not in data:
-        data["World best"] = 0
-    return data
-
-
-def _write_store(data):
-    # Write-to-temp-then-rename so a reader never sees a half-written file
-    # (os.replace is atomic on POSIX, which is what this preview runs on).
-    tmp_path = f"{_STORE_PATH}.tmp{os.getpid()}"
-    with open(tmp_path, "w") as f:
-        json.dump(data, f)
-    os.replace(tmp_path, _STORE_PATH)
+_PORT = os.environ.get("PORT") or "5000"
+_BASE_URL = f"http://127.0.0.1:{_PORT}"
+_TIMEOUT = 5
 
 
 def _hash_password(password):
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+
+def _api_request(method, path, payload=None):
+    """Runs one HTTP call against this site's own internal preview API and
+    returns (status_code, parsed_json_or_None). Never raises for ordinary
+    HTTP error statuses (404/409/etc.) — those are meaningful responses
+    the caller needs to branch on, not failures. Only genuine connectivity
+    problems (server unreachable, timeout) raise, since there's nothing
+    sensible to fall back to in that case."""
+    url = _BASE_URL + path
+    data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    req = urllib.request.Request(url, data=data, method=method)
+    if data is not None:
+        req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
+            body = resp.read()
+            return resp.status, (json.loads(body) if body else None)
+    except urllib.error.HTTPError as e:
+        body = e.read()
+        try:
+            return e.code, (json.loads(body) if body else None)
+        except json.JSONDecodeError:
+            return e.code, None
 
 
 class _DBValue(dict):
@@ -105,41 +93,73 @@ class _DBValue(dict):
         return self
 
 
-class _LocalDB(dict):
-    def __getitem__(self, key):
-        def _do():
-            store = _read_store()
-            if key not in store:
-                raise KeyError(key)
-            raw = store[key]
-            return _DBValue(raw) if isinstance(raw, dict) else raw
+class _NetworkedDB:
+    """Drop-in replacement for the replit.db-shaped object the game logic
+    below expects. Tracks which usernames are already known to exist on
+    the server this session (via a successful GET or POST), so ordinary
+    per-turn score/exp writes go straight to PUT (update) instead of
+    wastefully trying POST-then-fallback-to-PUT on every single
+    keypress — only the very first write for a brand-new signup needs to
+    attempt a create."""
 
-        return _with_lock(_do)
+    def __init__(self):
+        self._known_existing = set()
+
+    def __getitem__(self, key):
+        if key == "World best":
+            status, body = _api_request("GET", "/api/exponential-spacebar/world-best")
+            if status != 200:
+                raise KeyError(key)
+            return body["best_score"]
+        status, body = _api_request("GET", f"/api/exponential-spacebar/user/{urllib.parse.quote(key)}")
+        if status == 404:
+            raise KeyError(key)
+        if status != 200:
+            raise RuntimeError(f"Couldn't reach the save server ({status}).")
+        self._known_existing.add(key)
+        return _DBValue({"password": body["password"], "highscore": body["highscore"], "experience": body["experience"]})
 
     def __setitem__(self, key, value):
-        def _do():
-            store = _read_store()
-            store[key] = dict(value) if isinstance(value, dict) else value
-            _write_store(store)
-
-        _with_lock(_do)
+        if key == "World best":
+            status, _ = _api_request("PUT", "/api/exponential-spacebar/world-best", {"score": value, "holder": username})
+            if status != 200:
+                raise RuntimeError(f"Couldn't reach the save server ({status}).")
+            return
+        if key in self._known_existing:
+            status, _ = _api_request("PUT", f"/api/exponential-spacebar/user/{urllib.parse.quote(key)}", value)
+            if status != 200:
+                raise RuntimeError(f"Couldn't reach the save server ({status}).")
+            return
+        # First write for this username this session -- try to create it.
+        payload = dict(value)
+        payload["username"] = key
+        status, _ = _api_request("POST", "/api/exponential-spacebar/user", payload)
+        if status == 201:
+            self._known_existing.add(key)
+        elif status == 409:
+            # Already exists (shouldn't normally happen given the flow
+            # above, but handle it rather than silently dropping data) --
+            # fall back to an update with the same payload.
+            self._known_existing.add(key)
+            status2, _ = _api_request("PUT", f"/api/exponential-spacebar/user/{urllib.parse.quote(key)}", value)
+            if status2 != 200:
+                raise RuntimeError(f"Couldn't reach the save server ({status2}).")
+        else:
+            raise RuntimeError(f"Couldn't reach the save server ({status}).")
 
     def __contains__(self, key):
-        return _with_lock(lambda: key in _read_store())
+        if key == "World best":
+            return True  # the world-record row always exists (see app.py schema init)
+        if key in self._known_existing:
+            return True
+        status, _ = _api_request("GET", f"/api/exponential-spacebar/user/{urllib.parse.quote(key)}")
+        if status == 200:
+            self._known_existing.add(key)
+            return True
+        return False
 
-    def keys(self):
-        return _with_lock(lambda: list(_read_store().keys()))
 
-    def __iter__(self):
-        return iter(self.keys())
-
-
-db = _LocalDB()
-# Only seed "World best" the very first time this ever runs — unlike the
-# old in-memory version, we must NOT stomp it back to 0 on every session
-# start now that it's meant to persist.
-if "World best" not in db:
-    db["World best"] = 0
+db = _NetworkedDB()
 
 
 def clear():
@@ -179,13 +199,8 @@ def verify_username(username):
     raise Exception("Username must contain only letters, numbers, or symbols!")
   if len(username) > 15:
     raise Exception("Username must not be longer than 15 characters")
-  try:
-    if list(db.keys()).index(username) > -1:
-      raise Exception("User already exists!")
-  except ValueError:
-    pass
-  except Exception as e:
-    raise e
+  if username in db:
+    raise Exception("User already exists!")
 
 
 def verify_password(password):
@@ -222,7 +237,7 @@ while logged == False:
       username = input()
       try:
         try:
-          if list(db.keys()).index(username) > -1:
+          if username in db:
             #print("\nfound user")
             password = ""
             while True:
@@ -271,7 +286,6 @@ while logged == False:
       except Exception as e:
         print("")
         print(f"{Red}{e}{reset}")
-    db[username] = {}
     data = {}
     data["password"] = _hash_password(password)
     data["highscore"] = 0

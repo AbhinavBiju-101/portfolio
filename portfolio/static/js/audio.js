@@ -4,12 +4,15 @@
 // is remembered across page loads via localStorage since every navigation
 // here is a real page load, not a client-side route change.
 //
-// Each page gets its own theme (scale, tempo, register, chord progression)
-// so navigating the site feels like moving between different spaces. Every
-// theme is built from the same layered engine — a detuned pad, a sub-bass
-// voice, a lead arpeggio, a sparser high counter-melody, a soft echo bus,
-// a rhythmic pulse layer, and an occasional shimmer — just retuned per
-// page, so it stays one coherent "sound" throughout the site.
+// Each page gets its own theme (scale, tempo, register, chord progression,
+// rhythmic feel) so navigating the site feels like moving between distinct
+// spaces, not just a retuned copy of the same loop. Every theme is built
+// from the same layered engine, covering the four things real music is
+// usually layered from — rhythm (pulse + hi-hat), bass (a sustained sub
+// plus a walking bass pluck), harmony (a pad plus a patterned arpeggio),
+// and melody (a wandering lead plus a sparser counter-melody, with an
+// occasional shimmer on top) — just voiced, timed, and patterned
+// differently per page.
 //
 // "Continuous across pages": since navigation here is a real page load, the
 // AudioContext itself can't literally survive it — but the *music* isn't
@@ -21,13 +24,6 @@
 // drives mood and pacing, not just tone) are all derived from that shared
 // clock rather than reset per page, so leaving Home for Projects mid-phrase
 // and coming back later resumes roughly where the piece "would" be.
-//
-// On top of that, the pad doesn't fade in from silence on every page like
-// it used to — it remembers the last chord it was voicing (LAST_VOICE_KEY,
-// sessionStorage) and glides from there into the new page's theme over a
-// couple of seconds, so navigating genuinely sounds like one continuous
-// piece drifting into a new melody/mood rather than one loop stopping and
-// a different one starting cold.
 //
 // Autoplay: browsers block audio-with-sound before any user gesture on an
 // origin, and that's not something a site can (or should try to) bypass.
@@ -45,7 +41,6 @@
   const VOLUME_KEY = "site-audio-volume";
   const SONG_START_KEY = "site-audio-song-start"; // sessionStorage: ms epoch
   const WALK_KEY = "site-audio-walk-state"; // sessionStorage: JSON {lead, counter}
-  const LAST_VOICE_KEY = "site-audio-last-voice"; // sessionStorage: JSON {theme, atMs}
 
   function isEnabled() {
     try {
@@ -112,28 +107,68 @@
     }
   }
 
-  // What the pad/bass were last voicing (which theme, and at what point on
-  // the shared song clock) — read by the *next* page so its pad can glide
-  // in from that chord instead of fading up from silence. Written every
-  // time the pad (re)starts, so it always reflects "the last page that had
-  // music running," even across several navigations.
-  function loadLastVoice() {
+  // --- Emergent motif memory ----------------------------------------------
+  // This is the actual "recognizable, structured, but never hand-authored"
+  // system: rather than one fixed hardcoded phrase per page, each theme
+  // grows its own bank of short motifs (arrays of scale-degree indices)
+  // captured live from whatever the lead voice actually happened to play
+  // whenever it resolves onto a chord tone — nothing here is composed in
+  // advance. Once a phrase is captured it can resurface again later at a
+  // future chord change, so over a session you genuinely start recognizing
+  // "oh, that little run again" — except it's not a loop, it's the piece
+  // remembering itself. Persisted per theme in sessionStorage so the bank
+  // (aiming for 5+ distinct entries per page) keeps growing the longer
+  // someone browses, rather than resetting on every navigation.
+  const MOTIF_BANK_KEY = "site-audio-motif-bank";
+  const MOTIF_BANK_MAX = 8;
+  const MOTIF_MIN_LEN = 3;
+  const MOTIF_MAX_LEN = 5;
+
+  let motifBanksCache = null;
+  function loadMotifBanks() {
+    if (motifBanksCache) return motifBanksCache;
     try {
-      const raw = sessionStorage.getItem(LAST_VOICE_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed.theme !== "string" || !THEMES[parsed.theme]) return null;
-      return parsed;
+      const raw = sessionStorage.getItem(MOTIF_BANK_KEY);
+      motifBanksCache = raw ? JSON.parse(raw) : {};
     } catch (e) {
-      return null;
+      motifBanksCache = {};
     }
+    return motifBanksCache;
   }
-  function saveLastVoice(themeKey) {
+  function saveMotifBanks() {
     try {
-      sessionStorage.setItem(LAST_VOICE_KEY, JSON.stringify({ theme: themeKey, atMs: songTimeMs() }));
+      sessionStorage.setItem(MOTIF_BANK_KEY, JSON.stringify(motifBanksCache || {}));
     } catch (e) {
       /* ignore */
     }
+  }
+  // Every theme starts with its small hardcoded `motif` as a single seed
+  // entry (so there's *some* structure in the first few seconds of a
+  // session) — everything added after that is captured live from the
+  // theme's own generated material.
+  function getMotifBank(themeKey) {
+    const banks = loadMotifBanks();
+    if (!banks[themeKey]) {
+      const seed = THEMES[themeKey] && THEMES[themeKey].motif;
+      banks[themeKey] = seed ? [seed.slice()] : [];
+    }
+    return banks[themeKey];
+  }
+  function captureMotif(themeKey, phrase) {
+    if (!phrase || phrase.length < MOTIF_MIN_LEN) return;
+    const distinct = new Set(phrase).size;
+    if (distinct < 2) return; // a run of one repeated note isn't a motif
+    const bank = getMotifBank(themeKey);
+    const key = phrase.join(",");
+    if (bank.some((m) => m.join(",") === key)) return; // no exact dupes
+    bank.push(phrase.slice());
+    if (bank.length > MOTIF_BANK_MAX) bank.shift();
+    saveMotifBanks();
+  }
+  function pickMotif(themeKey) {
+    const bank = getMotifBank(themeKey);
+    if (!bank.length) return null;
+    return bank[Math.floor(Math.random() * bank.length)].slice();
   }
 
   // --- Mood/pacing sections ---------------------------------------------
@@ -159,86 +194,231 @@
   }
 
   // --- Per-page themes -------------------------------------------------
-  // `scale` is a set of semitone offsets from `root` (MIDI note number); the
-  // arpeggiator walks it with a slight bias rather than pure random, so it
-  // reads as a wandering melody instead of noise. `progression` is a list of
-  // chord-root offsets (also semitones from `root`) that the pad/bass cycle
-  // through over `chordMs` each, so the harmony actually moves instead of
-  // droning on one note.
+  // `scale` is a set of semitone offsets from `root` (MIDI note number) —
+  // this is the theme's fixed key, and it never moves. `progression` used
+  // to be raw semitone offsets applied on top of the melody, which meant
+  // every chord change silently transposed the whole scale to a new,
+  // unrelated pitch center — the actual bug behind the dissonance. Now
+  // `progression` is a list of INDICES INTO `scale`: each entry names
+  // which scale degree is the current chord's root, which guarantees the
+  // chord (and everything built on it — pad, bass, pulse) is always a
+  // note that already belongs to the key. The melody itself is read
+  // straight off `scale` too (see scheduleLoop), so voice and harmony can
+  // never drift out of tune with each other — only *which* scale degree
+  // is the tonal center of gravity changes.
+  //
+  // `motif` is a short SEED phrase only — just enough structure to sound
+  // intentional in the first few seconds of a session. It is not the real
+  // "recognizable pattern" system: see the motif bank below, which grows
+  // its own patterns from what the lead voice actually plays (nothing
+  // else here is hand-authored beyond this bootstrap seed).
+  //
+  //   `swing`      — 0 = dead straight, higher = notes lean off the grid
+  //                  (a groove/shuffle feel), applied uniformly across
+  //                  every layer's off-grid positions so nothing drifts
+  //                  out of phase with anything else.
+  //   `arpPattern` — how the comping/arpeggio layer moves through the
+  //                  current chord's tones: "up", "down", "updown", or
+  //                  "random".
+  //   `arpWave`/`arpMs`/`arpGain` — the comping layer's own timbre, note
+  //                  length, and level, independent of the lead.
+  //   `bassPattern`— a short cycle of chord-tone-triad positions (0/1/2)
+  //                  the walking-bass layer steps through.
+  //   `bassMs`     — that layer's note length.
+  //   `hatDensity` — how busy the percussive hi-hat texture is.
+  //   `echoWet`    — per-theme send level into the shared delay bus.
+  //
+  //   `beatMs` is the one shared subdivision every layer's timing is now a
+  //   whole-number multiple of (`leadDiv`, `counterDiv`, `arpDiv`,
+  //   `bassDiv`/`bassPhase`, `hatDiv`, `pulseDiv`) — see startClock() below.
+  //   Previously each layer ran on its own independent timer with its own
+  //   random jitter, so they'd slowly drift in and out of phase with each
+  //   other; that drift (not the melody itself) was most of what read as
+  //   "out of sync." Locking every layer to exact multiples of one grid
+  //   removes that source of chaos entirely, while the *ratios* between
+  //   the multiples (3-against-4, 6-against-9, etc.) are what give each
+  //   page its own rhythmic personality without ever losing sync.
   const THEMES = {
     home: {
-      root: 57, // A3 — bright, welcoming
+      root: 57, // A3 — bright, welcoming, pop-simple
       scale: [0, 2, 4, 7, 9, 12, 14, 16], // major pentatonic + octave, extra color tones
-      progression: [0, 5, 9, 7], // I - IV - vi - V, in semitone offsets
+      progression: [0, 3, 5, 4], // chord roots as scale-degree indices — always in-key
+      motif: [0, 2, 1, 4, 2],
       chordMs: 9000,
-      noteMs: 520,
-      padMs: 6000,
+      noteMs: 480,
       filterHz: 1800,
       wave: "triangle",
       padWave: "sine",
       gain: 0.5,
+      swing: 0.05,
+      arpPattern: "up",
+      arpWave: "triangle",
+      arpMs: 240,
+      arpGain: 0.5,
+      bassPattern: [0, 0, 1, 0],
+      bassMs: 480,
+      hatDensity: 0.5,
+      echoWet: 1.0,
+      beatMs: 140,
+      hatDiv: 1,
+      arpDiv: 2,
+      leadDiv: 4,
+      counterDiv: 6,
+      bassDiv: 4,
+      bassPhase: 2,
+      pulseDiv: 16,
     },
     projects: {
-      root: 55, // G3 — a bit more driven / purposeful
+      root: 55, // G3 — driven, purposeful, syncopated
       scale: [0, 3, 5, 7, 10, 12, 15, 17], // minor pentatonic-ish, some tension
-      progression: [0, -2, 3, -5],
+      progression: [0, 4, 2, 6],
+      motif: [0, 1, 3, 2],
       chordMs: 7000,
-      noteMs: 360,
-      padMs: 5200,
+      noteMs: 270,
       filterHz: 2200,
       wave: "sawtooth",
       padWave: "triangle",
       gain: 0.4,
+      swing: 0.22,
+      arpPattern: "updown",
+      arpWave: "sawtooth",
+      arpMs: 180,
+      arpGain: 0.42,
+      bassPattern: [0, 1, 0, 2],
+      bassMs: 520,
+      hatDensity: 0.75,
+      echoWet: 0.6,
+      beatMs: 105,
+      hatDiv: 1,
+      arpDiv: 2,
+      leadDiv: 3,
+      counterDiv: 5,
+      bassDiv: 6,
+      bassPhase: 3,
+      pulseDiv: 12,
     },
     skills: {
-      root: 60, // C4 — airy, spacious
+      root: 60, // C4 — airy, spacious, unhurried
       scale: [0, 2, 5, 7, 9, 14, 16, 19], // lydian-leaning, open
-      progression: [0, 7, 4, 9],
+      progression: [0, 4, 2, 5],
+      motif: [0, 3, 4, 1, 3],
       chordMs: 10000,
-      noteMs: 700,
-      padMs: 7500,
+      noteMs: 1150,
       filterHz: 1500,
       wave: "sine",
       padWave: "sine",
       gain: 0.45,
+      swing: 0,
+      arpPattern: "random",
+      arpWave: "sine",
+      arpMs: 580,
+      arpGain: 0.34,
+      bassPattern: [0, 0, 0, 1],
+      bassMs: 1500,
+      hatDensity: 0.22,
+      echoWet: 1.7,
+      beatMs: 230,
+      hatDiv: 2,
+      arpDiv: 3,
+      leadDiv: 6,
+      counterDiv: 9,
+      bassDiv: 8,
+      bassPhase: 4,
+      pulseDiv: 24,
     },
     certifications: {
-      root: 48, // C3 — low, stately, a bit formal
+      root: 48, // C3 — low, stately, formal, unhurried
       scale: [0, 4, 7, 11, 12, 16, 19], // major 7th flavor, resolved
-      progression: [0, 5, -3, 7],
+      progression: [0, 3, 1, 4],
+      motif: [0, 2, 3, 1],
       chordMs: 11000,
-      noteMs: 900,
-      padMs: 8000,
+      noteMs: 1450,
       filterHz: 1200,
       wave: "triangle",
       padWave: "sine",
       gain: 0.42,
+      swing: 0.12,
+      arpPattern: "down",
+      arpWave: "triangle",
+      arpMs: 740,
+      arpGain: 0.4,
+      bassPattern: [0, 2, 1, 0],
+      bassMs: 1450,
+      hatDensity: 0.15,
+      echoWet: 1.35,
+      beatMs: 220,
+      hatDiv: 4,
+      arpDiv: 4,
+      leadDiv: 8,
+      counterDiv: 12,
+      bassDiv: 8,
+      bassPhase: 4,
+      pulseDiv: 32,
     },
     about: {
-      root: 52, // E3 — warm, reflective
+      root: 52, // E3 — warm, reflective, gently human
       scale: [0, 2, 3, 7, 9, 10, 12, 15], // minor pentatonic + passing tones
-      progression: [0, 3, -2, 5],
+      progression: [0, 3, 2, 5],
+      motif: [0, 2, 3, 1, 4],
       chordMs: 9500,
-      noteMs: 640,
-      padMs: 6800,
+      noteMs: 860,
       filterHz: 1400,
       wave: "sine",
       padWave: "triangle",
       gain: 0.45,
+      swing: 0.16,
+      arpPattern: "updown",
+      arpWave: "sine",
+      arpMs: 430,
+      arpGain: 0.38,
+      bassPattern: [0, 0, 2, 1],
+      bassMs: 860,
+      hatDensity: 0.32,
+      echoWet: 1.2,
+      beatMs: 170,
+      hatDiv: 2,
+      arpDiv: 3,
+      leadDiv: 6,
+      counterDiv: 9,
+      bassDiv: 6,
+      bassPhase: 3,
+      pulseDiv: 24,
     },
     default: {
       root: 55,
       scale: [0, 2, 4, 7, 9, 12],
-      progression: [0, 5, 7],
+      progression: [0, 3, 1, 4],
+      motif: [0, 1, 3, 2],
       chordMs: 8000,
-      noteMs: 560,
-      padMs: 6200,
+      noteMs: 860,
       filterHz: 1700,
       wave: "triangle",
       padWave: "sine",
       gain: 0.4,
+      swing: 0.1,
+      arpPattern: "up",
+      arpWave: "triangle",
+      arpMs: 430,
+      arpGain: 0.4,
+      bassPattern: [0, 0, 1, 0],
+      bassMs: 860,
+      hatDensity: 0.4,
+      echoWet: 1.0,
+      beatMs: 170,
+      hatDiv: 2,
+      arpDiv: 3,
+      leadDiv: 6,
+      counterDiv: 9,
+      bassDiv: 6,
+      bassPhase: 3,
+      pulseDiv: 24,
     },
   };
+
+  // How strongly pad/bass are pulled up vs. the lead, so the "continuous"
+  // layer is actually audible at a normal volume instead of buried.
+  const PAD_GAIN_MULT = 0.42; // was 0.22
+  const BASS_GAIN_MULT = 0.48; // was 0.3
 
   function midiToFreq(m) {
     return 440 * Math.pow(2, (m - 69) / 12);
@@ -251,14 +431,29 @@
   let analyser = null;
   let analyserData = null;
   let running = false;
-  let schedulerId = null;
   let chordTimerId = null;
   let padNodes = null;
   let bassNodes = null;
   let delayBus = null;
   let walk = { lead: 0, counter: 0 };
-  let pulseTimerId = null;
   let pulseGain = null;
+  let noiseBuffer = null;
+
+  // --- Shared rhythmic grid ------------------------------------------------
+  // A single beat counter/clock every layer's timing is derived from — see
+  // startClock()/fireBeat() further down. Replaces what used to be five
+  // independent setTimeout loops (lead+counter, pulse, arp, bass, hats),
+  // each with its own random jitter, which is what let them drift out of
+  // phase with each other over time.
+  let clockTimerId = null;
+  let clockNextTime = 0; // ctx.currentTime for the next beat
+  let clockBeatNum = 0;
+
+  // Tracks the last note each melodic layer actually played (MIDI note
+  // number), so a new note can be nudged away from forming a harsh
+  // clash (minor 2nd / tritone) with whatever's still ringing.
+  let lastLeadMidi = null;
+  let lastCounterMidi = null;
 
   function ensureContext() {
     if (ctx) return ctx;
@@ -307,6 +502,14 @@
     analyserData = new Uint8Array(analyser.frequencyBinCount);
     musicGain.connect(analyser);
 
+    // A short buffer of white noise, generated once and reused (looped)
+    // for the hi-hat/percussion-texture layer — Web Audio has no built-in
+    // noise source, so this is the standard way to make one.
+    const noiseSeconds = 1;
+    noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * noiseSeconds, ctx.sampleRate);
+    const noiseData = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < noiseData.length; i++) noiseData[i] = Math.random() * 2 - 1;
+
     return ctx;
   }
 
@@ -315,49 +518,60 @@
     return THEMES[key] || THEMES.default;
   }
 
-  function chordOffset(theme, atMs) {
+  // Which scale-degree index is the current chord's root. Always a valid
+  // index into theme.scale, so the chord can never fall outside the key.
+  function chordIndex(theme, atMs) {
     const prog = theme.progression && theme.progression.length ? theme.progression : [0];
     const idx = Math.floor(atMs / theme.chordMs) % prog.length;
-    return prog[(idx + prog.length) % prog.length];
+    const raw = prog[(idx + prog.length) % prog.length];
+    return ((raw % theme.scale.length) + theme.scale.length) % theme.scale.length;
+  }
+
+  // The chord root resolved to an actual semitone offset from `root` — for
+  // the pad/bass/pulse, which just need "how far up from the root," not
+  // the scale-index itself.
+  function chordOffset(theme, atMs) {
+    return theme.scale[chordIndex(theme, atMs)];
+  }
+
+  // A rough diatonic triad for the current chord, expressed as scale-index
+  // positions (root + two stacked "thirds" within the scale, wrapping).
+  // This is what the melodic walk gravitates toward — the harmonic anchor
+  // that was missing before, since chord tones now come from the same
+  // fixed scale the melody already lives in.
+  function chordToneIndices(theme, idx) {
+    const len = theme.scale.length;
+    return [idx, (idx + 2) % len, (idx + 4) % len];
   }
 
   // --- Pad: two detuned oscillators + a sub-bass voice, both through slow
   // filter LFOs, both retargeted (glided, not re-triggered) whenever the
   // chord progression moves to its next chord. Runs continuously while
   // music is on.
+  //
+  // Always starts directly at its own theme's target pitch and just fades
+  // gain up from silence — no more borrowing the previous page's chord
+  // frequency and sliding into this one. That cross-theme portamento (often
+  // spanning a different root note entirely) was the "zooming" sweep on
+  // every navigation; a plain fade-in reads as a page starting cleanly
+  // instead.
   function startPad(theme, themeKey) {
     const now = ctx.currentTime;
     const chord = chordOffset(theme, songTimeMs());
     const targetPadFreq = midiToFreq(theme.root + chord - 12);
     const targetBassFreq = midiToFreq(theme.root + chord - 24);
 
-    // If another page in this tab was already voicing a chord, start there
-    // and glide into this page's theme instead of fading up from silence —
-    // this is the "flows into a different tune" transition rather than a
-    // hard cut between unrelated loops.
-    const lastVoice = loadLastVoice();
-    let startPadFreq = targetPadFreq;
-    let startBassFreq = targetBassFreq;
-    let glide = false;
-    if (lastVoice && lastVoice.theme !== themeKey) {
-      const prevTheme = THEMES[lastVoice.theme];
-      const prevChord = chordOffset(prevTheme, lastVoice.atMs);
-      startPadFreq = midiToFreq(prevTheme.root + prevChord - 12);
-      startBassFreq = midiToFreq(prevTheme.root + prevChord - 24);
-      glide = true;
-    }
-
     const osc1 = ctx.createOscillator();
     const osc2 = ctx.createOscillator();
     osc1.type = theme.padWave;
     osc2.type = theme.padWave;
-    osc1.frequency.value = startPadFreq;
-    osc2.frequency.value = startPadFreq;
+    osc1.frequency.value = targetPadFreq;
+    osc2.frequency.value = targetPadFreq;
     osc2.detune.value = 9; // slight beating between the two, for warmth
 
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.value = theme.filterHz * 0.5;
+    filter.frequency.value = theme.filterHz * 0.7; // was *0.5 — more presence, less buried
     filter.Q.value = 0.5;
 
     const lfo = ctx.createOscillator();
@@ -380,18 +594,7 @@
     osc2.start(now);
     lfo.start(now);
 
-    if (glide) {
-      // Continuing a piece already in progress: glide from the previous
-      // page's chord into this one, and only need a short volume lift
-      // since the pad isn't starting from true silence conceptually.
-      osc1.frequency.setTargetAtTime(targetPadFreq, now, 1.1);
-      osc2.frequency.setTargetAtTime(targetPadFreq, now, 1.1);
-      padEnv.gain.linearRampToValueAtTime(theme.gain * 0.22, now + 0.6);
-    } else {
-      // First music of the session (or resuming after being muted) — fade
-      // up from silence like before.
-      padEnv.gain.linearRampToValueAtTime(theme.gain * 0.22, now + 1.4);
-    }
+    padEnv.gain.linearRampToValueAtTime(theme.gain * PAD_GAIN_MULT, now + 1.4);
 
     padNodes = { osc1, osc2, filter, lfo, lfoGain, padEnv };
 
@@ -399,11 +602,11 @@
     // felt more than heard), gives the pad an actual low end.
     const bassOsc = ctx.createOscillator();
     bassOsc.type = "sine";
-    bassOsc.frequency.value = startBassFreq;
+    bassOsc.frequency.value = targetBassFreq;
 
     const bassFilter = ctx.createBiquadFilter();
     bassFilter.type = "lowpass";
-    bassFilter.frequency.value = 400;
+    bassFilter.frequency.value = 500; // was 400 — a bit more felt-and-heard presence
 
     const bassEnv = ctx.createGain();
     bassEnv.gain.value = 0;
@@ -413,18 +616,11 @@
     bassEnv.connect(musicGain);
 
     bassOsc.start(now);
-    if (glide) {
-      bassOsc.frequency.setTargetAtTime(targetBassFreq, now, 1.1);
-      bassEnv.gain.linearRampToValueAtTime(theme.gain * 0.3, now + 0.6);
-    } else {
-      bassEnv.gain.linearRampToValueAtTime(theme.gain * 0.3, now + 1.6);
-    }
+    bassEnv.gain.linearRampToValueAtTime(theme.gain * BASS_GAIN_MULT, now + 1.6);
 
     bassNodes = { bassOsc, bassFilter, bassEnv };
 
-    saveLastVoice(themeKey);
-
-    startPulse(theme);
+    startClock(theme);
   }
 
   function stopPad() {
@@ -462,6 +658,7 @@
       }
       pulseGain = null;
     }
+    stopClock();
   }
 
   // --- Rhythmic pulse layer ----------------------------------------------
@@ -470,66 +667,242 @@
   // than an ambient drone with notes sprinkled on top. Tempo and intensity
   // both track the current mood section (see currentSection() above), so
   // pacing genuinely shifts over time instead of just tone.
-  function pulseBeat(theme) {
+  function pulseBeat(theme, time) {
     if (!running || !ctx) return;
     const section = currentSection();
-    const now = ctx.currentTime;
     const chord = chordOffset(theme, songTimeMs());
     const freq = midiToFreq(theme.root + chord - 24);
 
     const osc = ctx.createOscillator();
     osc.type = "sine";
-    osc.frequency.setValueAtTime(freq * 2, now);
-    osc.frequency.exponentialRampToValueAtTime(freq, now + 0.09);
+    osc.frequency.setValueAtTime(freq * 2, time);
+    osc.frequency.exponentialRampToValueAtTime(freq, time + 0.09);
 
     const env = ctx.createGain();
     const peak = theme.gain * 0.16 * section.pulse;
-    env.gain.setValueAtTime(0, now);
-    env.gain.linearRampToValueAtTime(peak, now + 0.01);
-    env.gain.exponentialRampToValueAtTime(0.0006, now + 0.32);
+    env.gain.setValueAtTime(0, time);
+    env.gain.linearRampToValueAtTime(peak, time + 0.01);
+    env.gain.exponentialRampToValueAtTime(0.0006, time + 0.32);
 
     osc.connect(env);
     env.connect(musicGain);
-    osc.start(now);
-    osc.stop(now + 0.34);
+    osc.start(time);
+    osc.stop(time + 0.34);
+  }
 
-    // Occasional soft off-beat ghost note — pacing detail rather than a
-    // mechanical metronome.
-    if (Math.random() < 0.3 * section.pulse) {
-      const ghost = ctx.createOscillator();
-      ghost.type = "sine";
-      ghost.frequency.value = freq * 1.5;
-      const gEnv = ctx.createGain();
-      gEnv.gain.setValueAtTime(0, now + 0.16);
-      gEnv.gain.linearRampToValueAtTime(peak * 0.4, now + 0.17);
-      gEnv.gain.exponentialRampToValueAtTime(0.0005, now + 0.4);
-      ghost.connect(gEnv);
-      gEnv.connect(musicGain);
-      ghost.start(now + 0.16);
-      ghost.stop(now + 0.42);
+  // --- Arpeggio / comping layer -------------------------------------------
+  // Unlike the lead melody's free wander, this layer steps through a fixed,
+  // repeating pattern (`theme.arpPattern`) over the *current chord's* three
+  // triad tones — the same role a comping guitar or arpeggiated synth plays
+  // in a real song: a steady, anticipatable figure that outlines the
+  // harmony underneath the free melody. Repetition here (rather than in the
+  // lead) is deliberately what supplies "catchy," since a pattern the ear
+  // can predict is what a wandering, never-repeating lead can't provide on
+  // its own.
+  function arpPatternIndex(theme, step, tonesLen) {
+    switch (theme.arpPattern) {
+      case "down":
+        return (tonesLen - 1 - (step % tonesLen) + tonesLen) % tonesLen;
+      case "updown": {
+        const cycle = tonesLen * 2 - 2 || 1;
+        const p = step % cycle;
+        return p < tonesLen ? p : cycle - p;
+      }
+      case "random":
+        return Math.floor(Math.random() * tonesLen);
+      case "up":
+      default:
+        return step % tonesLen;
     }
   }
 
-  function startPulse(theme) {
-    if (pulseTimerId) clearTimeout(pulseTimerId);
-    function loop() {
-      if (!running) return;
-      const section = currentSection();
-      pulseBeat(currentTheme());
-      const base = theme.chordMs / 4; // roughly one thump per quarter-chord
-      const interval = base / section.tempo;
-      pulseTimerId = setTimeout(loop, interval);
+  function arpNote(theme, time, localStep) {
+    const atMs = songTimeMs();
+    const idx = chordIndex(theme, atMs);
+    const tones = chordToneIndices(theme, idx);
+    const patIdx = arpPatternIndex(theme, localStep, tones.length);
+    const degree = theme.scale[tones[patIdx]];
+    const section = currentSection();
+    const octaveUp = localStep % (tones.length * 2) >= tones.length ? 12 : 0;
+    const freq = midiToFreq(theme.root + degree + octaveUp);
+
+    const osc = ctx.createOscillator();
+    osc.type = theme.arpWave;
+    osc.frequency.value = freq;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = theme.filterHz * 0.85;
+    filter.Q.value = 0.6;
+
+    const env = ctx.createGain();
+    const peak = theme.gain * theme.arpGain * (0.75 + Math.random() * 0.2) * section.gain;
+    env.gain.setValueAtTime(0, time);
+    env.gain.linearRampToValueAtTime(peak, time + 0.008);
+    env.gain.exponentialRampToValueAtTime(0.0006, time + theme.arpMs / 1000);
+
+    const sendGain = ctx.createGain();
+    sendGain.gain.value = 0.3 * theme.echoWet;
+
+    osc.connect(filter);
+    filter.connect(env);
+    env.connect(musicGain);
+    env.connect(sendGain);
+    sendGain.connect(delayBus);
+
+    osc.start(time);
+    osc.stop(time + theme.arpMs / 1000 + 0.05);
+  }
+
+  // --- Walking bass layer --------------------------------------------------
+  // The sustained sub-bass drone (in startPad) gives a continuous low
+  // anchor; this is a separate, plucked layer that actually *moves* between
+  // chord tones (root/3rd/5th) on a short repeating pattern per theme —
+  // real basslines walk, they don't just hold one note — which is a big
+  // part of what was missing for "more layers" and a distinct feel per page.
+  function bassNote(theme, time, localStep) {
+    const atMs = songTimeMs();
+    const idx = chordIndex(theme, atMs);
+    const tones = chordToneIndices(theme, idx);
+    const pattern = theme.bassPattern && theme.bassPattern.length ? theme.bassPattern : [0];
+    const patIdx = pattern[localStep % pattern.length] % tones.length;
+    const degree = theme.scale[tones[patIdx]];
+    const section = currentSection();
+    const freq = midiToFreq(theme.root + degree - 12);
+
+    const osc = ctx.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.value = freq;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 380;
+    filter.Q.value = 0.4;
+
+    const env = ctx.createGain();
+    const peak = theme.gain * 0.34 * (0.8 + Math.random() * 0.15) * section.gain;
+    env.gain.setValueAtTime(0, time);
+    env.gain.linearRampToValueAtTime(peak, time + 0.015);
+    env.gain.exponentialRampToValueAtTime(0.0006, time + theme.bassMs / 1000);
+
+    osc.connect(filter);
+    filter.connect(env);
+    env.connect(musicGain);
+
+    osc.start(time);
+    osc.stop(time + theme.bassMs / 1000 + 0.05);
+  }
+
+  // --- Hi-hat / percussion texture layer -----------------------------------
+  // Short, filtered noise ticks — the fourth pillar (rhythm) alongside the
+  // low pulse thump. Density and speed are per-theme, so busier/driven pages
+  // (projects) feel audibly more rhythmic than sparse/airy ones (skills).
+  function hatHit(theme, time, accent) {
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer;
+    src.loop = true;
+    src.playbackRate.value = 1;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "highpass";
+    filter.frequency.value = accent ? 6500 : 8500;
+    filter.Q.value = 0.7;
+
+    const env = ctx.createGain();
+    const section = currentSection();
+    const peak = theme.gain * (accent ? 0.15 : 0.08) * section.pulse;
+    env.gain.setValueAtTime(0, time);
+    env.gain.linearRampToValueAtTime(peak, time + 0.003);
+    env.gain.exponentialRampToValueAtTime(0.0004, time + (accent ? 0.09 : 0.045));
+
+    src.connect(filter);
+    filter.connect(env);
+    env.connect(musicGain);
+
+    src.start(time);
+    src.stop(time + 0.12);
+  }
+
+  // --- Shared beat clock ----------------------------------------------------
+  // A standard "lookahead" Web Audio scheduler: every CLOCK_TICK_MS it wakes
+  // up and schedules any beats that fall within the next CLOCK_LOOKAHEAD_SEC
+  // window, using ctx.currentTime (the audio clock) for actual note timing
+  // rather than trusting setTimeout's timing directly — setTimeout is only
+  // used to decide *when to check*, never *when a note plays*. Every layer's
+  // participation is a simple "does this beat number divide evenly by my
+  // subdivision" check against the same beat counter, so nothing can drift
+  // out of phase with anything else the way five independent jittered
+  // timers could.
+  const CLOCK_TICK_MS = 40;
+  const CLOCK_LOOKAHEAD_SEC = 0.15;
+
+  function startClock(theme) {
+    clockNextTime = ctx.currentTime + 0.05;
+    clockBeatNum = 0;
+    scheduleClockAhead();
+  }
+  function stopClock() {
+    if (clockTimerId) {
+      clearTimeout(clockTimerId);
+      clockTimerId = null;
     }
-    loop();
+  }
+  function scheduleClockAhead() {
+    if (!running) return;
+    while (clockNextTime < ctx.currentTime + CLOCK_LOOKAHEAD_SEC) {
+      fireBeat(clockBeatNum, clockNextTime);
+      const theme = currentTheme();
+      const section = currentSection();
+      const beatSec = theme.beatMs / section.tempo / 1000;
+      clockBeatNum++;
+      clockNextTime += beatSec;
+    }
+    clockTimerId = setTimeout(scheduleClockAhead, CLOCK_TICK_MS);
+  }
+
+  function fireBeat(n, gridTime) {
+    const theme = currentTheme();
+    const section = currentSection();
+    const beatSec = theme.beatMs / section.tempo / 1000;
+    // Swing: every other grid position leans a little late — applied here,
+    // once, to whichever layer(s) happen to land on that position, so the
+    // shuffle feels like one shared groove instead of several unrelated
+    // wobbles.
+    const time = gridTime + (n % 2 === 1 ? theme.swing * beatSec : 0);
+
+    if (n % theme.hatDiv === 0 && Math.random() < theme.hatDensity * section.density) {
+      const accent = Math.floor(n / theme.hatDiv) % 4 === 0;
+      hatHit(theme, time, accent);
+    }
+    if (n % theme.arpDiv === 0) {
+      arpNote(theme, time, Math.floor(n / theme.arpDiv));
+    }
+    if (((n - theme.bassPhase) % theme.bassDiv + theme.bassDiv) % theme.bassDiv === 0) {
+      bassNote(theme, time, Math.floor(n / theme.bassDiv));
+    }
+    if (n % theme.pulseDiv === 0) {
+      pulseBeat(theme, time);
+    }
+    if (n % theme.leadDiv === 0) {
+      fireLead(theme, time, section);
+    }
+    if (n % theme.counterDiv === 0) {
+      fireCounter(theme, time, section);
+    }
+    if (Math.random() < 0.02 * section.density) {
+      shimmer(theme, time + 0.02);
+    }
   }
 
   // Glides the pad + bass to the current chord's root rather than
   // re-triggering them, so chord changes feel like the harmony shifting
   // underfoot instead of a new note starting.
+  let lastChordIdx = null;
   function retargetPadToChord(theme) {
     if (!padNodes || !bassNodes) return;
     const now = ctx.currentTime;
-    const chord = chordOffset(theme, songTimeMs());
+    const idx = chordIndex(theme, songTimeMs());
+    const chord = theme.scale[idx];
     const padFreq = midiToFreq(theme.root + chord - 12);
     const bassFreq = midiToFreq(theme.root + chord - 24);
     [padNodes.osc1, padNodes.osc2].forEach((osc) => {
@@ -538,6 +911,19 @@
     });
     bassNodes.bassOsc.frequency.cancelScheduledValues(now);
     bassNodes.bassOsc.frequency.setTargetAtTime(bassFreq, now, 2.2);
+
+    // A gentle swell right as the chord actually changes, so the harmonic
+    // movement is something you notice rather than something only true on
+    // paper — this is most of what makes the "continuous" layer read as
+    // continuous instead of just quietly present.
+    if (lastChordIdx !== null && lastChordIdx !== idx) {
+      const base = theme.gain * PAD_GAIN_MULT;
+      padNodes.padEnv.gain.cancelScheduledValues(now);
+      padNodes.padEnv.gain.setValueAtTime(padNodes.padEnv.gain.value, now);
+      padNodes.padEnv.gain.linearRampToValueAtTime(base * 1.3, now + 0.5);
+      padNodes.padEnv.gain.linearRampToValueAtTime(base, now + 2.6);
+    }
+    lastChordIdx = idx;
   }
 
   // One plucked note: fast attack, exponential decay, through a lowpass so
@@ -561,7 +947,7 @@
     env.gain.exponentialRampToValueAtTime(0.0008, time + theme.noteMs / 1000);
 
     const sendGain = ctx.createGain();
-    sendGain.gain.value = sendToDelay;
+    sendGain.gain.value = sendToDelay * theme.echoWet;
 
     osc.connect(filter);
     filter.connect(env);
@@ -593,7 +979,7 @@
     env.gain.exponentialRampToValueAtTime(0.0006, time + theme.noteMs / 1000 + 1.6);
 
     const sendGain = ctx.createGain();
-    sendGain.gain.value = 0.35;
+    sendGain.gain.value = 0.35 * theme.echoWet;
 
     osc.connect(filter);
     filter.connect(env);
@@ -609,61 +995,160 @@
   // voice wanders instead of jumping around or repeating a fixed loop.
   // Position persists across page loads (see WALK_KEY) so the contour
   // continues rather than restarting from degree zero every navigation.
-  function stepWalk(theme, pos) {
+  //
+  // `pull` (0..1) is how strongly this step is drawn toward the nearest
+  // note of `tones` (the current chord's tones) rather than moving freely.
+  // This is the actual harmony-awareness that was missing before: instead
+  // of a uniform random walk that ignores what chord is playing, the walk
+  // now resolves toward a chord tone right after a chord change and loosens
+  // into free passing-tone wander as the chord settles in — which is the
+  // same target-then-decorate logic real melodic improvisation uses.
+  function stepWalk(theme, pos, pull, tones) {
     const len = theme.scale.length;
-    const r = Math.random();
-    if (r < 0.45) pos += 1;
-    else if (r < 0.75) pos -= 1;
-    else if (r < 0.85) pos += 2;
-    else if (r < 0.95) pos -= 2;
-    // else: stay — a repeated note now and then reads as intentional
+    if (tones && tones.length && Math.random() < pull) {
+      let target = tones[0];
+      let bestDist = Math.abs(pos - target);
+      for (const t of tones) {
+        const d = Math.abs(pos - t);
+        if (d < bestDist) {
+          bestDist = d;
+          target = t;
+        }
+      }
+      if (target > pos) pos += Math.random() < 0.25 ? 2 : 1;
+      else if (target < pos) pos -= Math.random() < 0.25 ? 2 : 1;
+      // else already on a chord tone — fall through to a small free move
+      else {
+        const r = Math.random();
+        if (r < 0.4) pos += 1;
+        else if (r < 0.8) pos -= 1;
+      }
+    } else {
+      const r = Math.random();
+      if (r < 0.45) pos += 1;
+      else if (r < 0.75) pos -= 1;
+      else if (r < 0.85) pos += 2;
+      else if (r < 0.95) pos -= 2;
+      // else: stay — a repeated note now and then reads as intentional
+    }
     if (pos < 0) pos = 0;
     if (pos >= len) pos = len - 1;
     return pos;
   }
 
-  function scheduleLoop() {
-    if (!running) return;
-    const theme = currentTheme();
-    const section = currentSection();
-    const now = ctx.currentTime;
-    const chord = chordOffset(theme, songTimeMs());
+  function isChordTone(pos, tones) {
+    return tones.indexOf(pos) !== -1;
+  }
 
-    // Lead voice — not every tick plays a note; occasional rests keep it
+  // Tracks the last chord index seen by the lead voice, separate from the
+  // pad's own lastChordIdx above, so it can tell exactly when a chord
+  // change happens and, at that moment, decide whether to weave in a
+  // motif from the theme's bank (see "Emergent motif memory" above)
+  // instead of a free wander step. Firing on roughly half of chord
+  // changes, rather than every single one, is what keeps it "recognizable
+  // but unpredictable" instead of a mechanical, fully-repeating loop.
+  let lastSchedChordIdx = null;
+  let motifQueue = [];
+  // A rolling buffer of the free-wander notes the lead has played since
+  // its last resolution — candidate material for the motif bank. Reset
+  // whenever a phrase resolves (successfully captured or not) or when a
+  // motif-replay finishes, so captures reflect genuinely fresh material
+  // rather than replayed motifs feeding back into the bank.
+  let leadRun = [];
+
+  function fireLead(theme, time, section) {
+    const themeKey = (document.body && document.body.dataset.page) || "default";
+    const atMs = songTimeMs();
+    const idx = chordIndex(theme, atMs);
+    const tones = chordToneIndices(theme, idx);
+
+    if (lastSchedChordIdx !== idx) {
+      if (lastSchedChordIdx !== null && Math.random() < 0.55) {
+        const picked = pickMotif(themeKey);
+        if (picked) motifQueue = picked;
+      }
+      lastSchedChordIdx = idx;
+    }
+
+    // Pull toward a chord tone is strongest right as a chord lands and
+    // relaxes over the rest of that chord's time window — resolve, then
+    // wander freely until the next resolution. Floor is kept fairly high
+    // (0.3, not near-zero) so the wander always stays reasonably anchored
+    // to the harmony instead of drifting far enough to read as noise.
+    const sinceChord = atMs % theme.chordMs;
+    const chordFrac = sinceChord / theme.chordMs;
+    const pull = 0.62 - 0.32 * Math.min(1, chordFrac * 2);
+
+    // Lead voice — not every beat plays a note; occasional rests keep it
     // from feeling like a busy, mechanical arpeggio. Rest probability and
     // velocity both track the current mood section, so a "calm" stretch
     // genuinely plays sparser/softer than a "peak" one, not just quieter.
     const leadPlayChance = 1 - 0.18 / section.density;
-    if (Math.random() < leadPlayChance) {
-      walk.lead = stepWalk(theme, walk.lead);
-      const degree = theme.scale[walk.lead];
-      const octaveUp = Math.random() < 0.15 ? 12 : 0;
-      const freq = midiToFreq(theme.root + chord + degree + octaveUp);
-      const velocity = (0.7 + Math.random() * 0.3) * section.gain;
-      pluck(theme, freq, now + 0.02, velocity, 1, 0.28);
+    if (Math.random() >= leadPlayChance) return;
+
+    let resolved = false;
+    if (motifQueue.length) {
+      walk.lead = Math.max(0, Math.min(theme.scale.length - 1, motifQueue.shift()));
+      leadRun = []; // motif material doesn't get re-captured as "new"
+    } else {
+      walk.lead = stepWalk(theme, walk.lead, pull, tones);
+      resolved = isChordTone(walk.lead, tones);
+      leadRun.push(walk.lead);
+      if (leadRun.length > MOTIF_MAX_LEN) leadRun.shift();
+      if (resolved && leadRun.length >= MOTIF_MIN_LEN && Math.random() < 0.35) {
+        captureMotif(themeKey, leadRun);
+        leadRun = [walk.lead];
+      }
     }
 
-    // Sparser high counter-melody, roughly a third of the density of the
-    // lead, an octave+ up and quieter — this is what gives the loop its
-    // "more than one thing happening" complexity without crowding the mix.
-    const counterPlayChance = 0.28 * section.density;
-    if (Math.random() < counterPlayChance) {
-      walk.counter = stepWalk(theme, walk.counter);
-      const degree = theme.scale[walk.counter];
-      const freq = midiToFreq(theme.root + chord + degree + 19);
-      pluck(theme, freq, now + 0.05, (0.55 + Math.random() * 0.25) * section.gain, 0.55, 0.4);
-    }
-
-    // Rare shimmer on top — more likely to show up once things are
-    // building toward a peak than during a calm stretch.
-    if (Math.random() < 0.06 * section.density) {
-      shimmer(theme, now + 0.08);
-    }
-
+    // Single source of transposition: straight off the theme's fixed
+    // scale, never re-shifted by the chord. The chord's influence comes
+    // entirely through the walk's bias above, so melody and harmony can
+    // no longer fall out of key with each other.
+    const degree = theme.scale[walk.lead];
+    const octaveUp = Math.random() < 0.15 ? 12 : 0;
+    const midi = theme.root + degree + octaveUp;
+    const freq = midiToFreq(midi);
+    const velocity = (0.62 + Math.random() * 0.28) * section.gain;
+    pluck(theme, freq, time + 0.02, velocity, 1, 0.28);
+    lastLeadMidi = midi;
     saveWalkState(walk);
+  }
 
-    const jitter = (theme.noteMs / section.tempo) * (0.85 + Math.random() * 0.3);
-    schedulerId = setTimeout(scheduleLoop, jitter);
+  // Sparser high counter-melody — this is what gives the piece its "more
+  // than one thing happening" complexity without crowding the mix. Nudged
+  // away from forming a harsh clash (a minor 2nd or tritone) against
+  // whatever the lead just played, since two independently-wandering
+  // voices landing a semitone apart is the single most common source of
+  // a generative texture suddenly sounding "wrong" rather than just busy.
+  function fireCounter(theme, time, section) {
+    const atMs = songTimeMs();
+    const idx = chordIndex(theme, atMs);
+    const tones = chordToneIndices(theme, idx);
+    const sinceChord = atMs % theme.chordMs;
+    const chordFrac = sinceChord / theme.chordMs;
+    const pull = (0.62 - 0.32 * Math.min(1, chordFrac * 2)) * 0.75;
+
+    walk.counter = stepWalk(theme, walk.counter, pull, tones);
+    let degree = theme.scale[walk.counter];
+    let midi = theme.root + degree + 19;
+
+    if (lastLeadMidi !== null) {
+      const interval = Math.abs(midi - lastLeadMidi) % 12;
+      if (interval === 1 || interval === 11 || interval === 6) {
+        const alt = walk.counter + (midi > lastLeadMidi ? 1 : -1);
+        if (alt >= 0 && alt < theme.scale.length) {
+          walk.counter = alt;
+          degree = theme.scale[walk.counter];
+          midi = theme.root + degree + 19;
+        }
+      }
+    }
+
+    const freq = midiToFreq(midi);
+    pluck(theme, freq, time + 0.05, (0.55 + Math.random() * 0.25) * section.gain, 0.55, 0.4);
+    lastCounterMidi = midi;
+    saveWalkState(walk);
   }
 
   // Watches the shared song clock and glides the pad/bass to a new chord
@@ -681,25 +1166,19 @@
     if (running) return;
     running = true;
     walk = loadWalkState();
+    lastSchedChordIdx = null;
+    leadRun = [];
+    motifQueue = [];
     const themeKey = (document.body && document.body.dataset.page) || "default";
     startPad(currentTheme(), THEMES[themeKey] ? themeKey : "default");
-    scheduleLoop();
     scheduleChordWatch();
   }
 
   function stopMusic() {
     running = false;
-    if (schedulerId) {
-      clearTimeout(schedulerId);
-      schedulerId = null;
-    }
     if (chordTimerId) {
       clearTimeout(chordTimerId);
       chordTimerId = null;
-    }
-    if (pulseTimerId) {
-      clearTimeout(pulseTimerId);
-      pulseTimerId = null;
     }
     if (ctx) stopPad();
   }

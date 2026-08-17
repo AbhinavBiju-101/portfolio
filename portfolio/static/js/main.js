@@ -1148,3 +1148,28 @@ document.addEventListener("DOMContentLoaded", () => {
   setTimeout(spawnHalo, 900);
   scheduleNext();
 });
+
+// --- Hover-reveal header arming -------------------------------------------
+// The translucent .hover-header (see style.css) is fixed at the top of the
+// viewport and, on desktop, slides down whenever the mouse touches the very
+// top edge — but the plain, non-sticky .site-header already sits right
+// there until you scroll past it, so revealing the translucent copy on top
+// of it is redundant. This "arms" the hover-reveal only once the real
+// header has scrolled fully out of view, by toggling a class on <body>;
+// the actual slide-down behavior stays defined in CSS (see the
+// `body.header-armed` rule), this just decides when that CSS is allowed to
+// trigger. Scrolling back up past the real header disarms it again
+// immediately, even mid-hover, since the CSS selector simply stops
+// matching once the class is removed.
+document.addEventListener("DOMContentLoaded", () => {
+  const realHeader = document.querySelector(".site-header");
+  if (!realHeader || !("IntersectionObserver" in window)) return;
+
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      document.body.classList.toggle("header-armed", !entry.isIntersecting);
+    },
+    { threshold: 0 }
+  );
+  observer.observe(realHeader);
+});

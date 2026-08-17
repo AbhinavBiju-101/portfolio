@@ -213,7 +213,12 @@ code {
    blurred nav slides down so you don't have to scroll back up. It's
    pinned off-screen (translateY(-100%)) by default everywhere,
    including mobile, and only the (hover: hover) media query below ever
-   moves it — so touch devices never see it at all. */
+   moves it — so touch devices never see it at all.
+
+   It also only responds to hover once `body.header-armed` is present —
+   set by main.js via an IntersectionObserver on .site-header — so it
+   can't slide in on top of the real header while that's still visible;
+   it only "arms" once you've scrolled the real header out of view. */
 .header-hover-trigger {
   position: fixed;
   top: 0;
@@ -240,8 +245,8 @@ code {
   transition: transform 0.28s ease;
 }
 @media (hover: hover) and (pointer: fine) {
-  .header-hover-trigger:hover ~ .hover-header,
-  .hover-header:hover {
+  body.header-armed .header-hover-trigger:hover ~ .hover-header,
+  body.header-armed .hover-header:hover {
     transform: translateY(0);
   }
 }

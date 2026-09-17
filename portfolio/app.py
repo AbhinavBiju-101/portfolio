@@ -45,7 +45,7 @@ _CSP = (
     "img-src 'self' data:; "
     "connect-src 'self' https://cdn.jsdelivr.net https://cjrtnc.leaningtech.com; "
     "worker-src 'self' blob:; "
-    "frame-ancestors 'none'; "
+    "frame-ancestors 'self'; "
     "base-uri 'self'; "
     # The resume on /about is embedded with <object ... type="application/pdf">
     # so the browser's own PDF viewer renders it inline. That needs object-src

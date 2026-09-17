@@ -60,7 +60,10 @@ _CSP = (
 
 @app.after_request
 def _set_security_headers(resp):
-    resp.headers["X-Frame-Options"] = "DENY"
+    if request.path.endswith(".pdf"):
+        resp.headers["X-Frame-Options"] = "SAMEORIGIN"
+    else:
+        resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     resp.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"

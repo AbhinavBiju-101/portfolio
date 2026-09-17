@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import render_tags %}
+{% from "_macros.html" import render_tags, build_chip %}
 {% block title %}Projects — Portfolio{% endblock %}
 {% block content %}
 <section class="page-head">
@@ -47,6 +47,7 @@
         {% if project.pinned %}<span class="pinned-badge" title="One of the top projects">&#9733; Pinned</span>{% endif %}
       </h2>
       <p class="project-tagline">{{ project.tagline }}</p>
+      <div class="card-chips">{{ build_chip(project, with_label=False) }}</div>
       {% if sort == 'loc' and loc_by_project.get(project.slug) %}
       <p class="project-loc">{{ "{:,}".format(loc_by_project[project.slug]) }} lines</p>
       {% elif sort == 'created' and project.created %}

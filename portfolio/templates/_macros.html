@@ -27,3 +27,35 @@
   </div>
   {% endif %}
 {% endmacro %}
+
+{% macro build_chip(project, with_label=True) %}
+  {% set badge = build_badge(project) %}
+  <span class="build-chip build-chip--{{ badge.key }}" title="{{ badge.description }}">
+    <span class="build-chip-dot" aria-hidden="true"></span>
+    <span class="build-chip-text">{{ badge.label if with_label else badge.short }}</span>
+  </span>
+{% endmacro %}
+
+{% macro collaborator_list(project) %}
+  {% set people = project_collaborators(project) %}
+  {% if people %}
+  <div class="collaborators">
+    <h3 class="collaborators-title">Built with</h3>
+    <ul class="collaborator-list">
+      {% for person in people %}
+      <li class="collaborator">
+        <span class="collaborator-avatar" aria-hidden="true">{{ person.name[0] }}</span>
+        <span class="collaborator-body">
+          {% if person.url %}
+          <a class="collaborator-name" href="{{ person.url }}" target="_blank" rel="noopener">{{ person.name }}</a>
+          {% else %}
+          <span class="collaborator-name">{{ person.name }}</span>
+          {% endif %}
+          {% if person.role %}<span class="collaborator-role">{{ person.role }}</span>{% endif %}
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+{% endmacro %}

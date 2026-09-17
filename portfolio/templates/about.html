@@ -6,12 +6,11 @@
     <img class="about-photo" src="{{ url_for('static', filename='images/about/profile.jpg') }}" alt="Portrait of Abhinav Biju">
   </div>
   <div class="about-head-text">
-    <h1>About</h1>
-    <p>
-      Aspiring software engineer, first-year B.Tech CSE @ VIT Chennai, and
-      online BS Data Science student @ IIT Madras. I'm passionate about
-      building interconnected, broad systems — and lately, designing neural
-      networks and optimizing them with evolutionary algorithms.
+    <h1>Abhinav Biju</h1>
+    <p class="about-lede">
+      Software engineer. I build interconnected systems — distributed tools,
+      simulation engines, developer utilities — and lately, neural networks
+      optimized with evolutionary algorithms.
     </p>
     <p>
       Most of what I've built started with almost nothing — a notes app, a
@@ -31,6 +30,62 @@
       too.
     </p>
   </div>
+</section>
+
+
+<section class="stat-deck" aria-label="Profile at a glance">
+  {% for fact in facts %}
+  <div class="stat-card">
+    <span class="stat-label">{{ fact.label }}</span>
+    <span class="stat-value">{{ fact.value }}</span>
+    {% if fact.detail %}<span class="stat-detail">{{ fact.detail }}</span>{% endif %}
+    {% if fact.duration %}<span class="stat-duration">{{ fact.duration }}</span>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+
+<section class="resume-panel">
+  <div class="resume-head">
+    <div class="resume-head-text">
+      <h2 class="resume-title">{{ resume.title }}</h2>
+      <p class="resume-meta">
+        {% if resume.source %}
+        Generated from
+        {% if resume.source_url %}
+        <a href="{{ resume.source_url }}" target="_blank" rel="noopener">{{ resume.source }}</a>
+        {% else %}{{ resume.source }}{% endif %}
+        &middot;
+        {% endif %}
+        Last updated {{ resume.updated }}
+      </p>
+    </div>
+    {% if resume.exists %}
+    <div class="resume-actions">
+      <a class="btn btn-secondary" href="{{ url_for('static', filename='downloads/' + resume.file) }}" target="_blank" rel="noopener">Open in new tab</a>
+      <a class="btn btn-primary" href="{{ url_for('static', filename='downloads/' + resume.file) }}" download>Download PDF</a>
+    </div>
+    {% endif %}
+  </div>
+  {% if resume.exists %}
+  <div class="resume-frame">
+    <object class="resume-object"
+            data="{{ url_for('static', filename='downloads/' + resume.file) }}#view=FitH&toolbar=0"
+            type="application/pdf">
+      <iframe class="resume-object"
+              src="{{ url_for('static', filename='downloads/' + resume.file) }}#view=FitH&amp;toolbar=0"
+              title="{{ resume.title }}"></iframe>
+      <p class="resume-fallback">
+        Your browser can't display PDFs inline.
+        <a href="{{ url_for('static', filename='downloads/' + resume.file) }}" download>Download the PDF</a> instead.
+      </p>
+    </object>
+  </div>
+  {% else %}
+  <p class="resume-fallback">
+    Resume PDF not found — drop <code>{{ resume.file }}</code> into
+    <code>static/downloads/</code> and it'll render here automatically.
+  </p>
+  {% endif %}
 </section>
 
 <blockquote class="pull-quote">
@@ -66,6 +121,16 @@
     symbol-table → evaluator pipeline — a small compiler — once I wanted
     to know what was actually happening underneath "the calculator just
     works."
+  </p>
+  <p class="build-note">
+    Projects on this site are labelled by how they were actually written —
+    <span class="build-chip build-chip--self"><span class="build-chip-dot" aria-hidden="true"></span><span class="build-chip-text">Self-coded</span></span>
+    for the ones built from scratch with no AI assistance,
+    <span class="build-chip build-chip--vibe"><span class="build-chip-dot" aria-hidden="true"></span><span class="build-chip-text">Built with Claude</span></span>
+    where Claude was a pair-programmer, and
+    <span class="build-chip build-chip--collab"><span class="build-chip-dot" aria-hidden="true"></span><span class="build-chip-text">Collaborative</span></span>
+    for team projects. The architecture and the debugging were mine either way;
+    the label just says who did the typing.
   </p>
 </section>
 

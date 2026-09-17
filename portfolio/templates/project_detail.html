@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import render_tags %}
+{% from "_macros.html" import render_tags, build_chip, collaborator_list %}
 {% block title %}{{ project.name }} — Portfolio{% endblock %}
 {% block content %}
 <section class="project-detail">
@@ -48,6 +48,7 @@
   <div class="detail-header">
     <h1>{{ project.name }}</h1>
     <p class="project-tagline">{{ project.tagline }}</p>
+    <div class="detail-chips">{{ build_chip(project) }}</div>
     {{ render_tags(project) }}
     {% if project.created or project.updated %}
     <p class="project-dates">
@@ -65,6 +66,10 @@
     {% if project.github %}
     <a class="btn btn-secondary" href="https://github.com/{{ project.github }}" target="_blank" rel="noopener">View on GitHub</a>
     {% endif %}
+    {% if project.amo %}
+    <a class="btn btn-secondary" href="{{ project.amo.listing }}" target="_blank" rel="noopener">Install on Firefox</a>
+    <a class="btn btn-secondary" href="{{ project.amo.versions }}" target="_blank" rel="noopener">All versions</a>
+    {% endif %}
     {% if project.runtime %}
     <button
       id="preview-btn"
@@ -79,6 +84,8 @@
   </div>
 
   <div class="project-description prose">{{ project.description|markdownify|safe }}</div>
+
+  {{ collaborator_list(project) }}
 
   {% for section in project.sections %}
   <section class="content-section">
@@ -115,6 +122,47 @@
   </section>
   {% endfor %}
 
+
+  {% set update_log = project_update_log(project) %}
+  {% if update_log %}
+  <section class="content-section">
+    <h2 class="content-section-title">Version history</h2>
+    <figure class="content-text-block updatelog" data-updatelog>
+      <div class="updatelog-toolbar">
+        <div class="updatelog-meta">
+          <span class="updatelog-count">{{ update_log.count }} version{{ 's' if update_log.count != 1 }}</span>
+          {% if update_log.versions %}
+          <label class="updatelog-jump-label" for="updatelog-jump-{{ project.slug }}">Jump to</label>
+          <select class="updatelog-jump" id="updatelog-jump-{{ project.slug }}" data-updatelog-jump>
+            <option value="">Select a version…</option>
+            {% for v in update_log.versions %}
+            <option value="{{ v.anchor }}">{{ v.label }}</option>
+            {% endfor %}
+          </select>
+          {% endif %}
+        </div>
+        <div class="updatelog-actions">
+          <button type="button" class="explorer-btn" data-updatelog-action="expand">Expand</button>
+          <a class="explorer-btn" href="{{ update_log.raw_url }}">Raw .md</a>
+          <div class="explorer-zoom">
+            <button type="button" class="text-zoom-btn" data-zoom="out" aria-label="Decrease text size">A&minus;</button>
+            <span class="text-zoom-readout" aria-live="polite"></span>
+            <button type="button" class="text-zoom-btn" data-zoom="in" aria-label="Increase text size">A+</button>
+          </div>
+        </div>
+      </div>
+      <div class="updatelog-frame" data-updatelog-frame>
+        <div class="prose updatelog-body text-zoom-target" data-updatelog-body>{{ update_log.html|safe }}</div>
+      </div>
+      <figcaption>
+        Reconstructed by diffing every archived build of this project against the one
+        before it — added, removed and changed features per version, not a summary
+        written after the fact.
+      </figcaption>
+    </figure>
+  </section>
+  {% endif %}
+
   {% set file_tree_json = project_file_tree(project) %}
   {% if file_tree_json %}
   <section class="content-section">
@@ -146,7 +194,7 @@
           </div>
         </div>
       </div>
-      <figcaption>Everything that ships in the download — click a folder to open or close it, click a file to view its source, {{ 'straight from the GitHub repo' if project.github else 'read out of the zip' }}.</figcaption>
+      <figcaption>Everything that ships in the download — click a folder to open or close it, click a file to view its source, {{ 'straight from the GitHub repo' if project.github else 'read out of the signed build' }}.</figcaption>
     </figure>
   </section>
   {% endif %}
@@ -168,4 +216,5 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/explorer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/updatelog.js') }}"></script>
 {% endblock %}

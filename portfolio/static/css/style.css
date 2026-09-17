@@ -1624,3 +1624,305 @@ code {
   .home-about-grid { grid-template-columns: 1fr; }
 }
 
+
+/* ==========================================================================
+   Build provenance chips
+   ========================================================================== */
+.build-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.18rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-raised);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+  white-space: nowrap;
+  cursor: help;
+}
+.build-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.build-chip--self  { color: #6fcf97; border-color: #2f5540; }
+.build-chip--vibe  { color: var(--accent); border-color: var(--accent-dim); }
+.build-chip--collab { color: #6aa9e8; border-color: #2f4a68; }
+
+.detail-chips { margin: 0.5rem 0 0.75rem; }
+.card-chips { margin-top: 0.5rem; }
+
+/* ==========================================================================
+   Collaborators
+   ========================================================================== */
+.collaborators {
+  margin: 1.75rem 0;
+  padding: 1rem 1.15rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.collaborators-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.collaborator-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+}
+.collaborator { display: flex; align-items: center; gap: 0.6rem; }
+.collaborator-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  flex: none;
+}
+.collaborator-body { display: flex; flex-direction: column; line-height: 1.25; }
+.collaborator-name { font-size: 0.9rem; }
+.collaborator-role { font-size: 0.72rem; color: var(--text-dim); }
+
+/* ==========================================================================
+   Update log panel
+   ========================================================================== */
+.updatelog { margin: 0; }
+.updatelog-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+}
+.updatelog-meta,
+.updatelog-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.updatelog-count {
+  font-size: 0.78rem;
+  color: var(--accent);
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--accent-dim);
+  border-radius: 999px;
+}
+.updatelog-jump-label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.updatelog-jump {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.25rem 0.4rem;
+  font: inherit;
+  font-size: 0.82rem;
+  max-width: 14rem;
+}
+
+/* Collapsed by default — these logs run long. */
+.updatelog-frame {
+  position: relative;
+  max-height: 26rem;
+  overflow-y: auto;
+  padding: 0 1rem;
+  scroll-behavior: smooth;
+}
+.updatelog.is-expanded .updatelog-frame { max-height: 75vh; }
+.updatelog-frame::after {
+  content: "";
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  display: block;
+  height: 3.5rem;
+  margin-top: -3.5rem;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--bg-raised));
+}
+.updatelog.is-expanded .updatelog-frame::after { display: none; }
+
+.updatelog-body h2 {
+  margin: 1.75rem 0 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 1.05rem;
+  color: var(--accent);
+  scroll-margin-top: 0.5rem;
+}
+.updatelog-body h2:first-of-type { border-top: 0; margin-top: 0.75rem; }
+.updatelog-body h1 { font-size: 1.3rem; margin: 0.5rem 0; }
+.updatelog-body h2.is-jump-target {
+  background: rgba(255, 157, 61, 0.12);
+  border-radius: var(--radius);
+  transition: background 0.4s ease;
+}
+.updatelog-body ul { padding-left: 1.15rem; }
+.updatelog-body li { margin: 0.3rem 0; }
+.updatelog-body table { font-size: 0.85rem; }
+.updatelog-body hr { border: 0; border-top: 1px solid var(--border); margin: 1.25rem 0; }
+/* "Added" / "Removed" / "Changed" run-in labels */
+.updatelog-body p > strong:only-child {
+  display: inline-block;
+  margin-top: 0.6rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dim);
+}
+
+/* ==========================================================================
+   About — stat deck
+   ========================================================================== */
+.about-lede { font-size: 1.05rem; }
+
+.stat-deck {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1px;
+  margin: 2.5rem 0;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 1.1rem 1.15rem 1.25rem;
+  background: var(--bg-raised);
+}
+.stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.stat-value {
+  font-size: 1.35rem;
+  line-height: 1.2;
+  color: var(--text);
+  font-weight: 600;
+}
+.stat-detail { font-size: 0.85rem; color: var(--text-dim); }
+.stat-duration {
+  margin-top: 0.15rem;
+  align-self: flex-start;
+  font-size: 0.7rem;
+  color: var(--accent);
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--accent-dim);
+  border-radius: 999px;
+}
+
+/* ==========================================================================
+   About — resume panel
+   ========================================================================== */
+.resume-panel {
+  margin: 2.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+.resume-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--border);
+}
+.resume-title { margin: 0; font-size: 1.05rem; }
+.resume-meta { margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--text-dim); }
+.resume-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.resume-frame { background: var(--bg); }
+.resume-object {
+  display: block;
+  width: 100%;
+  height: 78vh;
+  min-height: 420px;
+  border: 0;
+}
+.resume-fallback { padding: 1.15rem; color: var(--text-dim); font-size: 0.9rem; }
+
+@media (max-width: 640px) {
+  /* Mobile PDF viewers are unreliable inline — shorter frame, and the
+     Download/Open buttons above carry the real weight. */
+  .resume-object { height: 55vh; min-height: 320px; }
+}
+
+.build-note {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  line-height: 2.1;
+}
+
+/* ==========================================================================
+   Skill detail — "Verified by"
+   ========================================================================== */
+.verified-by {
+  margin: 1.5rem 0 2.5rem;
+  padding: 1.1rem 1.15rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-left: 3px solid #6fcf97;
+  border-radius: var(--radius);
+}
+.verified-by-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.85rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.verified-by-mark { color: #6fcf97; font-size: 0.95rem; }
+.credential-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.credential {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0.8rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.credential-body { display: flex; flex-direction: column; gap: 0.15rem; }
+.credential-name { font-size: 0.92rem; }
+.credential-issuer { font-size: 0.78rem; color: var(--text-dim); }
+.credential-id {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.credential-verify { font-size: 0.82rem; white-space: nowrap; }

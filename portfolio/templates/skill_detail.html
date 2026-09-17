@@ -10,6 +10,30 @@
   <p>Used in {{ projects|length }} project{{ 's' if projects|length != 1 }}.</p>
 </section>
 
+
+{% if credentials %}
+<section class="verified-by">
+  <h2 class="verified-by-title">
+    <span class="verified-by-mark" aria-hidden="true">&#10003;</span>
+    Verified by
+  </h2>
+  <ul class="credential-list">
+    {% for cert in credentials %}
+    <li class="credential">
+      <div class="credential-body">
+        <span class="credential-name">{{ cert.name }}</span>
+        <span class="credential-issuer">{{ cert.issuer }}{% if cert.date %} &middot; {{ cert.date }}{% endif %}</span>
+        {% if cert.credential_id %}<span class="credential-id">ID {{ cert.credential_id }}</span>{% endif %}
+      </div>
+      {% if cert.credential_url %}
+      <a class="credential-verify" href="{{ cert.credential_url }}" target="_blank" rel="noopener">Verify &rarr;</a>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 <section class="project-grid">
   {% for project in projects %}
   <article class="project-card">

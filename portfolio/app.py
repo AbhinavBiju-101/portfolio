@@ -57,14 +57,36 @@ _CSP = (
     "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com"
 )
 
+# X-Frame-Options and CSP's frame-ancestors both govern who's allowed to
+# frame *this* response — checked against the resource actually being
+# framed, not the page doing the framing. 'none'/DENY is the right default
+# for every HTML page on the site (nothing here should ever be embeddable,
+# by us or anyone else), but the resume PDF is the one resource we
+# deliberately frame ourselves, via <object> on /about. Left at the
+# site-wide default, that same DENY/'none' lands on the PDF's own response
+# and blocks it from loading there too — same-origin or not, DENY means
+# nobody, including us. This variant swaps in frame-ancestors 'self' for
+# exactly that case, so our own pages can still frame it while any other
+# site still can't.
+_CSP_SELF_FRAMEABLE = _CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'")
+
+
+def _is_self_frameable(resp):
+    """True for a response meant to be frameable by our own pages — right
+    now that's just the resume PDF (served as a static file, detected by
+    its content type so any future same-origin PDF embed gets this for
+    free without another special case)."""
+    return resp.mimetype == "application/pdf"
+
 
 @app.after_request
 def _set_security_headers(resp):
-    resp.headers["X-Frame-Options"] = "SAMEORIGIN"
+    frameable = _is_self_frameable(resp)
+    resp.headers["X-Frame-Options"] = "SAMEORIGIN" if frameable else "DENY"
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     resp.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-    resp.headers["Content-Security-Policy"] = _CSP
+    resp.headers["Content-Security-Policy"] = _CSP_SELF_FRAMEABLE if frameable else _CSP
     resp.headers["Cross-Origin-Opener-Policy"] = "same-origin"
     resp.headers["Cross-Origin-Resource-Policy"] = "same-origin"
     # HSTS only makes sense over HTTPS; Render terminates TLS in front of

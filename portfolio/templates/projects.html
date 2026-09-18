@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import render_tags, build_chip %}
+{% from "_macros.html" import render_tags %}
 {% block title %}Projects — Portfolio{% endblock %}
 {% block content %}
 <section class="page-head">
@@ -7,20 +7,29 @@
   <p>Each one is set up to download and run locally.</p>
   {% set f = 'pinned' if pinned_only else None %}
   {% set pv = '1' if preview_only else None %}
+  {% set b = build_filter %}
   <div class="project-filter-toggle">
-    <a href="{{ url_for('projects', preview=pv) }}" class="{{ 'is-active' if not pinned_only }}">All</a>
-    <a href="{{ url_for('projects', filter='pinned', preview=pv) }}" class="{{ 'is-active' if pinned_only }}">Pinned only</a>
+    <a href="{{ url_for('projects', preview=pv, build=b) }}" class="{{ 'is-active' if not pinned_only }}">All</a>
+    <a href="{{ url_for('projects', filter='pinned', preview=pv, build=b) }}" class="{{ 'is-active' if pinned_only }}">Pinned only</a>
   </div>
   <div class="project-filter-toggle project-preview-toggle">
-    <a href="{{ url_for('projects', filter=f) }}" class="{{ 'is-active' if not preview_only }}">All</a>
-    <a href="{{ url_for('projects', filter=f, preview='1') }}" class="{{ 'is-active' if preview_only }}">Has preview</a>
+    <a href="{{ url_for('projects', filter=f, build=b) }}" class="{{ 'is-active' if not preview_only }}">All</a>
+    <a href="{{ url_for('projects', filter=f, build=b, preview='1') }}" class="{{ 'is-active' if preview_only }}">Has preview</a>
+  </div>
+  <div class="project-filter-toggle project-build-toggle">
+    <span class="project-sort-label">Built:</span>
+    <a href="{{ url_for('projects', filter=f, preview=pv) }}" class="{{ 'is-active' if not b }}">All</a>
+    <a href="{{ url_for('projects', filter=f, preview=pv, build='self') }}" class="{{ 'is-active' if b == 'self' }}">Self-coded</a>
+    <a href="{{ url_for('projects', filter=f, preview=pv, build='vibe') }}" class="{{ 'is-active' if b == 'vibe' }}">Vibe coded</a>
+    <a href="{{ url_for('projects', filter=f, preview=pv, build='collab') }}" class="{{ 'is-active' if b == 'collab' }}">Team</a>
   </div>
   <div class="project-filter-toggle project-sort-toggle">
     <span class="project-sort-label">Sort:</span>
-    <a href="{{ url_for('projects', filter=f, preview=pv) }}" class="{{ 'is-active' if not sort }}">Pinned first</a>
-    <a href="{{ url_for('projects', filter=f, preview=pv, sort='name') }}" class="{{ 'is-active' if sort == 'name' }}">Name</a>
-    <a href="{{ url_for('projects', filter=f, preview=pv, sort='created') }}" class="{{ 'is-active' if sort == 'created' }}">Newest</a>
-    <a href="{{ url_for('projects', filter=f, preview=pv, sort='loc') }}" class="{{ 'is-active' if sort == 'loc' }}">Lines of code</a>
+    <a href="{{ url_for('projects', filter=f, preview=pv, build=b) }}" class="{{ 'is-active' if not sort }}">Pinned first</a>
+    <a href="{{ url_for('projects', filter=f, preview=pv, build=b, sort='name') }}" class="{{ 'is-active' if sort == 'name' }}">Name</a>
+    <a href="{{ url_for('projects', filter=f, preview=pv, build=b, sort='created') }}" class="{{ 'is-active' if sort == 'created' }}">Newest</a>
+    <a href="{{ url_for('projects', filter=f, preview=pv, build=b, sort='loc') }}" class="{{ 'is-active' if sort == 'loc' }}">Lines of code</a>
+    <a href="{{ url_for('projects', filter=f, preview=pv, build=b, sort='versions') }}" class="{{ 'is-active' if sort == 'versions' }}">Versions</a>
   </div>
   <div class="search-bar">
     <input type="search" id="projects-search" class="search-input"
@@ -47,11 +56,17 @@
         {% if project.pinned %}<span class="pinned-badge" title="One of the top projects">&#9733; Pinned</span>{% endif %}
       </h2>
       <p class="project-tagline">{{ project.tagline }}</p>
-      <div class="card-chips">{{ build_chip(project, with_label=False) }}</div>
+      {% if version_count(project) %}
+      <div class="card-chips">
+        <span class="version-chip" title="{{ version_count(project) }} versions documented">{{ version_count(project) }}v</span>
+      </div>
+      {% endif %}
       {% if sort == 'loc' and loc_by_project.get(project.slug) %}
       <p class="project-loc">{{ "{:,}".format(loc_by_project[project.slug]) }} lines</p>
       {% elif sort == 'created' and project.created %}
       <p class="project-created">{{ project.created }}</p>
+      {% elif sort == 'versions' and version_count(project) %}
+      <p class="project-loc">{{ version_count(project) }} version{{ 's' if version_count(project) != 1 }} documented</p>
       {% endif %}
       {{ render_tags(project) }}
       <div class="project-actions">

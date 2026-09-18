@@ -37,10 +37,18 @@
     <span class="stat-number">{{ "{:,}".format(stats.github_stars) if stats.github_stars is not none else "—" }}</span>
     <span class="stat-label">GitHub stars</span>
   </div>
+  <div class="stat-tile">
+    <span class="stat-number">{{ stats.num_versions_documented }}</span>
+    <span class="stat-label">Versions documented</span>
+  </div>
 </section>
 <p class="stats-caption">
   {{ stats.num_projects }} full case studies live here — 50+ smaller experiments and early work
   (Scratch, LUA, early Python) sit on <a href="https://github.com/AbhinavBiju-101" target="_blank" rel="noopener">GitHub</a>.
+  {{ stats.num_versions_documented }} versions documented across {{ stats.num_projects_with_logs }} projects
+  {%- if stats.fastest_streak %} — <a href="{{ url_for('project_detail', slug=stats.fastest_streak.slug) }}">{{ stats.fastest_streak.count }} releases in {{ stats.fastest_streak.days }} days</a> was the fastest stretch
+  {%- endif %}.
+  See the full build history on the <a href="{{ url_for('timeline') }}">timeline</a>.
 </p>
 
 {% if featured_projects %}

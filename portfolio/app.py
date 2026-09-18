@@ -15,7 +15,7 @@ import markdown as md
 import requests
 import psycopg2
 import psycopg2.extras
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 app = Flask(__name__)
 
@@ -42,10 +42,10 @@ _CSP = (
     "default-src 'self'; "
     "script-src 'self' https://cdn.jsdelivr.net https://cjrtnc.leaningtech.com 'unsafe-eval' 'wasm-unsafe-eval'; "
     "style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' data:; "
+    "img-src 'self' data: https://i.ytimg.com; "
     "connect-src 'self' https://cdn.jsdelivr.net https://cjrtnc.leaningtech.com; "
     "worker-src 'self' blob:; "
-    "frame-ancestors 'self'; "
+    "frame-ancestors 'none'; "
     "base-uri 'self'; "
     # The resume on /about is embedded with <object ... type="application/pdf">
     # so the browser's own PDF viewer renders it inline. That needs object-src
@@ -60,10 +60,7 @@ _CSP = (
 
 @app.after_request
 def _set_security_headers(resp):
-    if request.path.endswith(".pdf"):
-        resp.headers["X-Frame-Options"] = "SAMEORIGIN"
-    else:
-        resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["X-Frame-Options"] = "SAMEORIGIN"
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     resp.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
@@ -1673,13 +1670,13 @@ PROJECTS = [
         "languages": ["Python", "JavaScript", "SQL", "HTML", "CSS"],
         "skills": ["AI Agents", "LLM Orchestration", "Databases", "REST APIs", "Testing"],
         "runtime": None,
+        # The demo video used to have its own "Demo" section here with a
+        # standalone iframe block. It's now surfaced as the first item in
+        # the screenshot gallery instead (see project_video() in app.py,
+        # which pulls it from this exact spot) — showing it twice on the
+        # same page was redundant once the gallery could lead with it.
+        "video": "https://www.youtube.com/embed/M_TS8T7-XnE",
         "sections": [
-            {
-                "title": "Demo",
-                "blocks": [
-                    {"type": "video", "src": "https://www.youtube.com/embed/M_TS8T7-XnE"},
-                ],
-            },
             {
                 "title": "Architecture",
                 "blocks": [
@@ -1879,6 +1876,7 @@ def get_homepage_stats(count_this_visit):
         views = _record_view()
     else:
         views = _read_stats_file().get("views", 0)
+    vstats = compute_version_stats()
     return {
         "years_coding": max(1, datetime.now().year - CODING_START_YEAR),
         "num_projects": len(PROJECTS),
@@ -1886,6 +1884,9 @@ def get_homepage_stats(count_this_visit):
         "views": views,
         "lines_of_code": TOTAL_LOC,
         "github_stars": get_github_stars(),
+        "num_versions_documented": vstats["total_versions"],
+        "num_projects_with_logs": vstats["projects_with_logs"],
+        "fastest_streak": vstats["fastest_streak"],
     }
 
 
@@ -1937,6 +1938,21 @@ def _count_lines_of_code():
 
 TOTAL_LOC, LOC_BY_PROJECT = _count_lines_of_code()
 
+# Version counts per project, for the small "N versions" badge on cards and
+# the detail page — same source of truth as the update-log panel itself
+# (_update_log_versions), so the count can never disagree with what's
+# actually rendered.
+VERSION_COUNT_BY_PROJECT = {
+    p["slug"]: len(_update_log_versions(load_update_log(p["slug"]) or ""))
+    for p in PROJECTS
+}
+
+
+@app.template_global("version_count")
+def version_count(project):
+    slug = project.get("slug") if isinstance(project, dict) else project
+    return VERSION_COUNT_BY_PROJECT.get(slug, 0)
+
 
 # --- GitHub stars ------------------------------------------------------
 # Live, unlike lines-of-code above — stars actually change over time and
@@ -1951,6 +1967,22 @@ TOTAL_LOC, LOC_BY_PROJECT = _count_lines_of_code()
 # last known-good value instead of erroring the homepage; if it's NEVER
 # succeeded (e.g. right after a fresh deploy with no network yet), it
 # returns None and the template shows "—" rather than a fabricated 0.
+# Optional: set a GITHUB_TOKEN env var to raise the unauthenticated 60
+# requests/hour GitHub API limit to 5,000/hour. Not required — the app runs
+# fine without one, since every call site here is cached with its own TTL —
+# but heavy local testing (or a burst of real traffic) can exhaust the
+# unauthenticated limit, which surfaces as a 403 and an empty file tree /
+# stale "last updated" until the hourly window resets.
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
+
+
+def _github_headers():
+    h = {"Accept": "application/vnd.github+json"}
+    if GITHUB_TOKEN:
+        h["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    return h
+
+
 GITHUB_STARS_CACHE = {"total": None, "fetched_at": 0.0}
 GITHUB_STARS_LOCK = threading.Lock()
 GITHUB_STARS_TTL_SECONDS = 3600
@@ -1970,7 +2002,7 @@ def get_github_stars():
         try:
             resp = requests.get(
                 f"https://api.github.com/repos/{repo}",
-                headers={"Accept": "application/vnd.github+json"},
+                headers=_github_headers(),
                 timeout=4,
             )
             if resp.status_code == 200:
@@ -2022,7 +2054,7 @@ def get_github_last_commit_month(repo):
         resp = requests.get(
             f"https://api.github.com/repos/{repo}/commits",
             params={"per_page": 1},
-            headers={"Accept": "application/vnd.github+json"},
+            headers=_github_headers(),
             timeout=4,
         )
         if resp.status_code == 200:
@@ -2094,7 +2126,7 @@ CERTIFICATIONS = [
         "credential_id": None,
         "description": "Course completion badge for Claude Academy's introductory course on working effectively with Claude.",
         "skills": ["AI Tooling"],
-        "image": "claude-101.png",
+        "image": "claude-101.jpg",
     },
     {
         "name": "Python (Basic)",
@@ -2530,6 +2562,43 @@ def project_images(project):
     return discover_gallery_images(project["slug"])
 
 
+# --- Demo video, as the leading gallery item -------------------------------
+# A project's optional top-level "video" field holds a YouTube URL (any of
+# the watch/embed/youtu.be forms). When present, it's shown as the first
+# item in the screenshot gallery — a click-to-play thumbnail ahead of the
+# real screenshots — rather than as a separate section further down the
+# page, so the demo is the first thing a visitor sees.
+_YOUTUBE_ID_PATTERNS = [
+    re.compile(r"(?:youtube(?:-nocookie)?\.com/embed/)([\w-]{11})"),
+    re.compile(r"(?:youtube\.com/watch\?v=)([\w-]{11})"),
+    re.compile(r"(?:youtu\.be/)([\w-]{11})"),
+]
+
+
+def _youtube_id(url):
+    for pat in _YOUTUBE_ID_PATTERNS:
+        m = pat.search(url or "")
+        if m:
+            return m.group(1)
+    return None
+
+
+@app.template_global("project_video")
+def project_video(project):
+    """Return {"embed", "thumb", "id"} for a project's demo video, or None.
+    "embed" always points at youtube-nocookie.com (no autoplay — the click
+    to reveal the iframe is the play action) and "thumb" at i.ytimg.com's
+    hqdefault, both allow-listed in the CSP alongside youtube.com itself."""
+    video_id = _youtube_id(project.get("video"))
+    if not video_id:
+        return None
+    return {
+        "id": video_id,
+        "embed": f"https://www.youtube-nocookie.com/embed/{video_id}?autoplay=1",
+        "thumb": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+    }
+
+
 # --- Project file tree (source + resources) ------------------------------
 # Powers the "Files" block on each project's detail page: a scrollable,
 # ASCII "tree"-style listing of exactly what ships in the download — same
@@ -2576,7 +2645,7 @@ def _entries_from_github(owner, repo):
     r = requests.get(
         f"https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}",
         params={"recursive": "1"},
-        headers={"Accept": "application/vnd.github+json"},
+        headers=_github_headers(),
         timeout=6,
     )
     r.raise_for_status()
@@ -2827,12 +2896,242 @@ def _parse_created(s):
     return None
 
 
+_MONTH_ABBREVS = {m[:3]: i for m, i in _MONTHS.items()}
+
+
+def _parse_date_loose(s):
+    """Wider parser for the timeline: 'August 2025' -> date(2025, 8, 1);
+    'Aug 2026' -> date(2026, 8, 1) (CERTIFICATIONS/ACHIEVEMENTS use the
+    abbreviated form, PROJECTS "created"/"updated" use the full one — this
+    accepts both); '2026-09-08' -> date(2026, 9, 8); '2024' -> date(2024, 1, 1).
+    'TBD', None, or anything unrecognised -> None (caller decides what an
+    absent date means — usually "still ongoing" rather than "unplaced")."""
+    s = (s or "").strip()
+    if not s or s.upper() == "TBD":
+        return None
+    m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", s)
+    if m:
+        return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    parts = s.split()
+    if len(parts) == 2 and parts[1].isdigit() and len(parts[1]) == 4:
+        word = parts[0].lower()
+        month = _MONTHS.get(word) or _MONTH_ABBREVS.get(word[:3])
+        if month:
+            return date(int(parts[1]), month, 1)
+    if len(parts) == 1 and parts[0].isdigit() and len(parts[0]) == 4:
+        return date(int(parts[0]), 1, 1)
+    return None
+
+
+# --- Timeline ---------------------------------------------------------
+# Real per-build release dates, sourced from actual archive/build
+# timestamps — never estimated or guessed. A project not listed here
+# just doesn't get individual version dots on the timeline yet; its
+# overall span (created -> updated) still shows. When dates for another
+# project's versions are worked out (see content/updatelogs/<slug>.md),
+# add an entry here in the same (version, "YYYY-MM-DD") shape and its
+# dots — and its influence on the "fastest streak" homepage stat — show
+# up automatically, no other code changes needed.
+VERSION_DATES = {
+    "claude-prompt-scheduler": [
+        ("1.0", "2026-09-08"), ("1.2", "2026-09-08"), ("1.2.1", "2026-09-08"),
+        ("1.2.2", "2026-09-08"), ("1.2.3", "2026-09-08"), ("1.2.4", "2026-09-09"),
+        ("1.4.1", "2026-09-10"), ("1.5.0", "2026-09-11"), ("1.6.0", "2026-09-12"),
+        ("1.6.1", "2026-09-12"), ("1.6.2", "2026-09-12"), ("1.6.3", "2026-09-12"),
+        ("1.7.0", "2026-09-12"), ("1.7.1", "2026-09-12"), ("1.7.2", "2026-09-13"),
+        ("1.7.4", "2026-09-13"), ("1.7.5", "2026-09-13"), ("1.7.6", "2026-09-13"),
+        ("2.1.0", "2026-09-14"), ("2.1.1", "2026-09-14"),
+    ],
+}
+
+
+def compute_version_stats():
+    """Powers the homepage's "N versions documented across M projects" and
+    "fastest streak" stats — both computed from real data (the update logs
+    and VERSION_DATES above), never hand-typed, so they can't drift out of
+    sync with the logs themselves."""
+    total_versions = 0
+    projects_with_logs = 0
+    for proj in PROJECTS:
+        log = load_update_log(proj["slug"])
+        if log:
+            projects_with_logs += 1
+            total_versions += len(_update_log_versions(log))
+
+    best_streak = None
+    for slug, entries in VERSION_DATES.items():
+        dates = sorted(d for d in (_parse_date_loose(s) for _, s in entries) if d)
+        if len(dates) < 2:
+            continue
+        span_days = (dates[-1] - dates[0]).days + 1
+        if best_streak is None or len(dates) > best_streak["count"]:
+            proj = get_project(slug)
+            best_streak = {
+                "count": len(dates), "days": span_days,
+                "project": proj["name"] if proj else slug, "slug": slug,
+            }
+
+    return {
+        "total_versions": total_versions,
+        "projects_with_logs": projects_with_logs,
+        "fastest_streak": best_streak,
+    }
+
+
+TIMELINE_PX_PER_DAY = 2.4
+TIMELINE_MIN_HEIGHT = 1200
+TIMELINE_MAX_HEIGHT = 7000
+TIMELINE_LANE_GAP_DAYS = 10  # min gap before a lane is reused by another project
+
+
+def build_timeline():
+    """Lay out every project as a vertical bar (created -> updated, or ->
+    today if still "TBD"/ongoing) on a shared day-scale, oldest at the top.
+    Overlapping projects — genuinely worked on in parallel — are packed
+    into separate side-by-side lanes with a greedy interval-graph coloring
+    (reuse a lane once its last project ended, with TIMELINE_LANE_GAP_DAYS
+    of breathing room; otherwise open a new lane). Certifications and
+    achievements are plotted as point events on a separate central spine,
+    since they're not tied to one project's timespan. Positions are
+    precomputed here as pixel offsets rather than in the template, so the
+    template stays declarative and the scale logic lives in one place."""
+    today = date.today()
+
+    bars = []
+    for p in PROJECTS:
+        start = _parse_date_loose(p.get("created"))
+        if not start:
+            continue
+        raw_updated = (p.get("updated") or "").strip()
+        estimated = False
+        ongoing = False
+        if raw_updated.upper() == "TBD":
+            # No recorded end date. A github-linked project gets a real one
+            # from its last commit (same live lookup the detail page uses,
+            # and cached the same way — see get_github_last_commit_month).
+            # Without that, stretching the bar all the way to "today" would
+            # claim continuous activity these projects aren't getting, so
+            # the fallback is a bounded estimate instead: longer for a
+            # project with more documented version history, short and
+            # flat for one with none. Estimated bars render lighter and
+            # labelled with "~" so they read as a guess, not a fact.
+            end = None
+            if p.get("github"):
+                live = get_github_last_commit_month(p["github"])
+                end = _parse_date_loose(live) if live else None
+            if end is None:
+                vcount = VERSION_COUNT_BY_PROJECT.get(p["slug"], 0)
+                span_days = max(45, vcount * 10) if vcount else 60
+                end = start + timedelta(days=min(span_days, 365))
+                estimated = True
+        else:
+            end = _parse_date_loose(raw_updated) or start
+        if end < start:
+            end = start
+        dots = []
+        for version, dstr in VERSION_DATES.get(p["slug"], []):
+            d = _parse_date_loose(dstr)
+            if d:
+                dots.append({"version": version, "date": d})
+        log = load_update_log(p["slug"])
+        bars.append({
+            "project": p, "start": start, "end": end,
+            "ongoing": ongoing, "estimated": estimated,
+            "dots": dots,
+            "version_count": len(_update_log_versions(log)) if log else 0,
+            "has_dated_versions": bool(dots),
+        })
+    bars.sort(key=lambda it: it["start"])
+
+    lane_free_at = []  # index -> date this lane is next free from
+    for it in bars:
+        placed = False
+        for i, free_at in enumerate(lane_free_at):
+            if it["start"] > free_at:
+                lane_free_at[i] = it["end"]
+                it["lane"] = i
+                placed = True
+                break
+        if not placed:
+            lane_free_at.append(it["end"])
+            it["lane"] = len(lane_free_at) - 1
+
+    point_events = []
+    for c in CERTIFICATIONS:
+        d = _parse_date_loose(c.get("date"))
+        if d:
+            point_events.append({
+                "kind": "certification", "date": d, "title": c["name"],
+                "subtitle": c.get("issuer"), "url": c.get("credential_url"),
+            })
+    for a in ACHIEVEMENTS:
+        d = _parse_date_loose(a.get("date"))
+        if d:
+            point_events.append({
+                "kind": "achievement", "date": d, "title": a["title"],
+                "subtitle": a.get("category"), "project_slug": a.get("project_slug"),
+            })
+    point_events.sort(key=lambda e: e["date"])
+
+    if not bars and not point_events:
+        return {"bars": [], "point_events": [], "lane_count": 0,
+                "height_px": TIMELINE_MIN_HEIGHT, "year_marks": [], "today_top_px": 0}
+
+    all_dates = [it["start"] for it in bars] + [it["end"] for it in bars] \
+        + [e["date"] for e in point_events] + [today]
+    min_date, max_date = min(all_dates), max(all_dates)
+    total_days = max((max_date - min_date).days, 1)
+    height_px = min(max(total_days * TIMELINE_PX_PER_DAY, TIMELINE_MIN_HEIGHT),
+                     TIMELINE_MAX_HEIGHT)
+    px_per_day = height_px / total_days
+
+    def top_of(d):
+        return (d - min_date).days * px_per_day
+
+    for it in bars:
+        it["top_px"] = round(top_of(it["start"]), 1)
+        it["height_px"] = max(round((it["end"] - it["start"]).days * px_per_day, 1), 10)
+        for dot in it["dots"]:
+            dot["top_px"] = round(top_of(dot["date"]) - it["top_px"], 1)
+        it["start_label"] = it["start"].strftime("%b %Y")
+        it["end_label"] = ("Ongoing" if it["ongoing"]
+                            else ("~ " + it["end"].strftime("%b %Y") if it["estimated"]
+                                  else it["end"].strftime("%b %Y")))
+
+    for e in point_events:
+        e["top_px"] = round(top_of(e["date"]), 1)
+        e["date_label"] = e["date"].strftime("%b %Y")
+
+    year_marks = []
+    for year in range(min_date.year, max_date.year + 1):
+        d = date(year, 1, 1)
+        if min_date <= d <= max_date:
+            year_marks.append({"year": year, "top_px": round(top_of(d), 1)})
+
+    return {
+        "bars": bars,
+        "point_events": point_events,
+        "lane_count": len(lane_free_at),
+        "height_px": round(height_px),
+        "year_marks": year_marks,
+        "today_top_px": round(top_of(today), 1) if min_date <= today <= max_date else None,
+    }
+
+
+@app.route("/timeline")
+def timeline():
+    return render_template("timeline.html", active="timeline", tl=build_timeline())
+
+
 @app.route("/projects")
 def projects():
     pinned_only = request.args.get("filter") == "pinned"
     preview_only = request.args.get("preview") == "1"
+    build_filter = request.args.get("build")
+    if build_filter not in BUILD_TYPES:
+        build_filter = None
     sort = request.args.get("sort")
-    if sort not in ("name", "created", "loc"):
+    if sort not in ("name", "created", "loc", "versions"):
         sort = None
 
     if sort == "name":
@@ -2847,6 +3146,15 @@ def projects():
     elif sort == "loc":
         # Most lines of code first.
         sorted_projects = sorted(PROJECTS, key=lambda p: -LOC_BY_PROJECT.get(p["slug"], 0))
+    elif sort == "versions":
+        # Most versions documented first; undocumented projects sort last
+        # rather than mixing in at 0 among ones that just have a short
+        # real history.
+        sorted_projects = sorted(
+            PROJECTS,
+            key=lambda p: (VERSION_COUNT_BY_PROJECT.get(p["slug"], 0) == 0,
+                            -VERSION_COUNT_BY_PROJECT.get(p["slug"], 0)),
+        )
     else:
         # Default: stable sort, pinned projects float to the top, everything
         # else keeps its original relative order underneath — nothing is
@@ -2856,9 +3164,13 @@ def projects():
     shown = [p for p in sorted_projects if p.get("pinned")] if pinned_only else sorted_projects
     if preview_only:
         shown = [p for p in shown if p.get("runtime")]
+    if build_filter:
+        shown = [p for p in shown
+                 if (p.get("build") or DEFAULT_BUILD_TYPE) == build_filter]
     return render_template(
         "projects.html", active="projects", projects=shown, pinned_only=pinned_only,
-        preview_only=preview_only, sort=sort, loc_by_project=LOC_BY_PROJECT,
+        preview_only=preview_only, build_filter=build_filter, sort=sort,
+        loc_by_project=LOC_BY_PROJECT,
     )
 
 

@@ -761,34 +761,93 @@ function showComingSoon(container, runtime) {
 
 // --- Screenshot gallery ------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  const mainImg = document.getElementById("gallery-main-img");
   const mainBtn = document.getElementById("gallery-main-btn");
+  const mainImg = document.getElementById("gallery-main-img");
+  const videoWrap = document.getElementById("gallery-main-video");
   const thumbs = Array.from(document.querySelectorAll(".gallery-thumb"));
-  if (!mainImg || !mainBtn) return;
+  if (!mainBtn && !videoWrap) return;
 
-  // Full list of { src, alt } for every screenshot, in order, so the
-  // lightbox can step through them even for a project that only has one
-  // image (no thumbs) or several.
-  const images = thumbs.length
-    ? thumbs.map((t) => ({ src: t.dataset.full, alt: t.querySelector("img").alt }))
-    : [{ src: mainImg.src, alt: mainImg.alt }];
+  // One entry per thumb, in DOM order — which is also the order their
+  // data-index values count up in, so items[i] always matches the thumb
+  // whose data-index is i. A video thumb (if present) is always first.
+  const items = thumbs.map((t) => ({
+    kind: t.dataset.kind,
+    src: t.dataset.full,
+    alt: t.querySelector("img") ? t.querySelector("img").alt : "",
+    embed: t.dataset.embed,
+  }));
 
-  let activeIndex = 0;
+  // The video's click-to-play button gets rebuilt from scratch every time
+  // we switch back to it, so switching away always stops playback rather
+  // than leaving a hidden iframe running in the background — remember its
+  // original (unplayed) markup once, up front, to reset to.
+  const videoIdleHTML = videoWrap ? videoWrap.innerHTML : "";
 
-  function setActive(index) {
-    activeIndex = index;
-    mainImg.src = images[index].src;
-    mainImg.alt = images[index].alt;
-    thumbs.forEach((t) => t.classList.toggle("is-active", Number(t.dataset.index) === index));
+  function bindVideoPlay() {
+    const playBtn = document.getElementById("gallery-video-play");
+    if (!playBtn || !videoWrap) return;
+    playBtn.addEventListener("click", () => {
+      const embed = videoWrap.dataset.embed;
+      if (!embed) return;
+      const iframe = document.createElement("iframe");
+      iframe.src = embed;
+      iframe.title = videoWrap.dataset.title || "Demo video";
+      iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+      iframe.allowFullscreen = true;
+      iframe.className = "gallery-video-iframe";
+      videoWrap.innerHTML = "";
+      videoWrap.appendChild(iframe);
+    });
   }
 
+  let activeIndex = thumbs.findIndex((t) => t.classList.contains("is-active"));
+  if (activeIndex < 0) activeIndex = 0;
+
+  function setActive(index) {
+    if (!items[index]) return;
+    activeIndex = index;
+    const item = items[index];
+    thumbs.forEach((t) => t.classList.toggle("is-active", Number(t.dataset.index) === index));
+
+    if (item.kind === "video") {
+      if (mainBtn) mainBtn.hidden = true;
+      if (videoWrap) {
+        videoWrap.hidden = false;
+        videoWrap.innerHTML = videoIdleHTML; // reset: stop any playing iframe
+        bindVideoPlay();
+      }
+    } else {
+      if (videoWrap) videoWrap.hidden = true;
+      if (mainBtn) {
+        mainBtn.hidden = false;
+        if (mainImg) {
+          mainImg.src = item.src;
+          mainImg.alt = item.alt;
+        }
+      }
+    }
+  }
+
+  bindVideoPlay();
   thumbs.forEach((thumb) => {
     thumb.addEventListener("click", () => setActive(Number(thumb.dataset.index)));
   });
 
+  if (!mainImg) return; // video-only project — no lightbox to wire up
+
   // --- Lightbox: bigger popup, arrow-key/arrow-button navigation ---------
+  // Image-only — steps through screenshots by their lightbox index (0-based
+  // among images alone), which is independent of the combined gallery
+  // index above whenever a video occupies slot 0.
   const lightbox = document.getElementById("lightbox");
   if (!lightbox) return;
+
+  const imageThumbs = thumbs.filter((t) => t.dataset.kind !== "video");
+  const images = imageThumbs.length
+    ? imageThumbs.map((t) => ({ src: t.dataset.full, alt: t.querySelector("img").alt }))
+    : [{ src: mainImg.src, alt: mainImg.alt }];
+
+  let lightboxIndex = 0;
 
   const lightboxImg = document.getElementById("lightbox-img");
   const lightboxCount = document.getElementById("lightbox-count");
@@ -797,11 +856,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const nextBtn = document.getElementById("lightbox-next");
 
   function showInLightbox(index) {
-    activeIndex = (index + images.length) % images.length;
-    lightboxImg.src = images[activeIndex].src;
-    lightboxImg.alt = images[activeIndex].alt;
-    if (lightboxCount) lightboxCount.textContent = `${activeIndex + 1} / ${images.length}`;
-    setActive(activeIndex);
+    lightboxIndex = (index + images.length) % images.length;
+    lightboxImg.src = images[lightboxIndex].src;
+    lightboxImg.alt = images[lightboxIndex].alt;
+    if (lightboxCount) lightboxCount.textContent = `${lightboxIndex + 1} / ${images.length}`;
+    const thumb = imageThumbs[lightboxIndex];
+    if (thumb) setActive(Number(thumb.dataset.index));
   }
 
   function openLightbox(index) {
@@ -815,20 +875,24 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.style.overflow = "";
   }
 
-  mainBtn.addEventListener("click", () => openLightbox(activeIndex));
-  thumbs.forEach((thumb) => {
-    thumb.addEventListener("dblclick", () => openLightbox(Number(thumb.dataset.index)));
+  mainBtn.addEventListener("click", () => {
+    const thumb = thumbs[activeIndex];
+    const li = thumb ? Number(thumb.dataset.lightboxIndex) : 0;
+    openLightbox(Number.isNaN(li) ? 0 : li);
+  });
+  imageThumbs.forEach((thumb) => {
+    thumb.addEventListener("dblclick", () => openLightbox(Number(thumb.dataset.lightboxIndex)));
   });
   closeBtn.addEventListener("click", closeLightbox);
   lightbox.querySelectorAll("[data-close-lightbox]").forEach((el) => el.addEventListener("click", closeLightbox));
-  if (prevBtn) prevBtn.addEventListener("click", () => showInLightbox(activeIndex - 1));
-  if (nextBtn) nextBtn.addEventListener("click", () => showInLightbox(activeIndex + 1));
+  if (prevBtn) prevBtn.addEventListener("click", () => showInLightbox(lightboxIndex - 1));
+  if (nextBtn) nextBtn.addEventListener("click", () => showInLightbox(lightboxIndex + 1));
 
   document.addEventListener("keydown", (e) => {
     if (lightbox.hidden) return;
     if (e.key === "Escape") closeLightbox();
-    else if (e.key === "ArrowLeft") showInLightbox(activeIndex - 1);
-    else if (e.key === "ArrowRight") showInLightbox(activeIndex + 1);
+    else if (e.key === "ArrowLeft") showInLightbox(lightboxIndex - 1);
+    else if (e.key === "ArrowRight") showInLightbox(lightboxIndex + 1);
   });
 
   // Basic swipe support so the lightbox is usable on mobile too.
@@ -837,7 +901,7 @@ document.addEventListener("DOMContentLoaded", () => {
   lightbox.addEventListener("touchend", (e) => {
     if (touchStartX === null) return;
     const dx = e.changedTouches[0].clientX - touchStartX;
-    if (Math.abs(dx) > 40) showInLightbox(activeIndex + (dx < 0 ? 1 : -1));
+    if (Math.abs(dx) > 40) showInLightbox(lightboxIndex + (dx < 0 ? 1 : -1));
     touchStartX = null;
   }, { passive: true });
 });

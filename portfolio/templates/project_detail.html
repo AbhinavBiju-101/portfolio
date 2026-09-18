@@ -5,28 +5,53 @@
 <section class="project-detail">
   <a class="back-link" href="{{ url_for('projects') }}">&larr; All projects</a>
 
+  {% set video = project_video(project) %}
   {% set images = project_images(project) %}
-  {% if images %}
+  {% set total_items = images|length + (1 if video else 0) %}
+  {% if video or images %}
   <div class="gallery">
     <div class="gallery-main">
-      <button type="button" id="gallery-main-btn" class="gallery-main-btn" aria-label="View larger screenshot">
+      <button type="button" id="gallery-main-btn" class="gallery-main-btn"
+              aria-label="View larger screenshot" {{ 'hidden' if video else '' }}>
+        {% if images %}
         <img id="gallery-main-img"
              src="{{ url_for('static', filename='images/' + project.slug + '/' + images[0]) }}"
              alt="{{ project.name }} screenshot 1">
+        {% endif %}
       </button>
+      {% if video %}
+      <div id="gallery-main-video" class="gallery-main-video"
+           data-embed="{{ video.embed }}" data-title="{{ project.name }} demo video">
+        <button type="button" id="gallery-video-play" class="gallery-video-play"
+                aria-label="Play {{ project.name }} demo video">
+          <img src="{{ video.thumb }}" alt="{{ project.name }} demo video" loading="lazy">
+          <span class="gallery-play-icon" aria-hidden="true">&#9658;</span>
+        </button>
+      </div>
+      {% endif %}
     </div>
-    {% if images|length > 1 %}
+    {% if total_items > 1 %}
     <div class="gallery-thumbs">
+      {% if video %}
+      <button type="button" class="gallery-thumb gallery-thumb--video is-active"
+              data-kind="video" data-index="0" data-embed="{{ video.embed }}">
+        <img src="{{ video.thumb }}" alt="{{ project.name }} demo video thumbnail">
+        <span class="gallery-thumb-play" aria-hidden="true">&#9658;</span>
+      </button>
+      {% endif %}
       {% for img in images %}
-      <button type="button" class="gallery-thumb {{ 'is-active' if loop.first }}"
-              data-full="{{ url_for('static', filename='images/' + project.slug + '/' + img) }}"
-              data-index="{{ loop.index0 }}">
+      <button type="button" class="gallery-thumb {{ 'is-active' if not video and loop.first }}"
+              data-kind="image"
+              data-index="{{ loop.index if video else loop.index0 }}"
+              data-lightbox-index="{{ loop.index0 }}"
+              data-full="{{ url_for('static', filename='images/' + project.slug + '/' + img) }}">
         <img src="{{ url_for('static', filename='images/' + project.slug + '/' + img) }}" alt="{{ project.name }} thumbnail {{ loop.index }}">
       </button>
       {% endfor %}
     </div>
     {% endif %}
   </div>
+  {% if images %}
   <div id="lightbox" class="lightbox" hidden>
     <div class="lightbox-backdrop" data-close-lightbox></div>
     <button type="button" id="lightbox-close" class="lightbox-close" aria-label="Close">&times;</button>
@@ -41,6 +66,7 @@
       {% endif %}
     </figure>
   </div>
+  {% endif %}
   {% else %}
   <div class="gallery-main gallery-main--placeholder" aria-hidden="true"></div>
   {% endif %}

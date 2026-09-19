@@ -43,7 +43,6 @@
       <button type="button" class="gallery-thumb {{ 'is-active' if not video and loop.first }}"
               data-kind="image"
               data-index="{{ loop.index if video else loop.index0 }}"
-              data-lightbox-index="{{ loop.index0 }}"
               data-full="{{ url_for('static', filename='images/' + project.slug + '/' + img) }}">
         <img src="{{ url_for('static', filename='images/' + project.slug + '/' + img) }}" alt="{{ project.name }} thumbnail {{ loop.index }}">
       </button>
@@ -51,22 +50,30 @@
     </div>
     {% endif %}
   </div>
-  {% if images %}
   <div id="lightbox" class="lightbox" hidden>
     <div class="lightbox-backdrop" data-close-lightbox></div>
     <button type="button" id="lightbox-close" class="lightbox-close" aria-label="Close">&times;</button>
-    {% if images|length > 1 %}
-    <button type="button" id="lightbox-prev" class="lightbox-arrow lightbox-prev" aria-label="Previous screenshot">&#8249;</button>
-    <button type="button" id="lightbox-next" class="lightbox-arrow lightbox-next" aria-label="Next screenshot">&#8250;</button>
+    {% if total_items > 1 %}
+    <button type="button" id="lightbox-prev" class="lightbox-arrow lightbox-prev" aria-label="Previous">&#8249;</button>
+    <button type="button" id="lightbox-next" class="lightbox-arrow lightbox-next" aria-label="Next">&#8250;</button>
     {% endif %}
     <figure class="lightbox-figure">
       <img id="lightbox-img" src="" alt="">
-      {% if images|length > 1 %}
+      {% if video %}
+      <div id="lightbox-video" class="lightbox-video" data-embed="{{ video.embed }}"
+           data-title="{{ project.name }} demo video" hidden>
+        <button type="button" id="lightbox-video-play" class="gallery-video-play"
+                aria-label="Play {{ project.name }} demo video">
+          <img src="{{ video.thumb }}" alt="{{ project.name }} demo video" loading="lazy">
+          <span class="gallery-play-icon" aria-hidden="true">&#9658;</span>
+        </button>
+      </div>
+      {% endif %}
+      {% if total_items > 1 %}
       <figcaption id="lightbox-count" class="lightbox-count"></figcaption>
       {% endif %}
     </figure>
   </div>
-  {% endif %}
   {% else %}
   <div class="gallery-main gallery-main--placeholder" aria-hidden="true"></div>
   {% endif %}

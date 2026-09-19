@@ -5,6 +5,7 @@
   --text: #e7e8ea;
   --text-dim: #9aa0ab;
   --accent: #ff9d3d;
+  --accent-rgb: 255, 157, 61;
   --accent-dim: #7a5a34;
   --radius: 6px;
 }
@@ -1256,6 +1257,24 @@ code {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   display: block;
 }
+.lightbox-figure img[hidden] { display: none; }
+/* The video slide sits in the same spot as the image (lightbox-figure
+   stacks them, JS toggles which is hidden) but needs an explicit box —
+   an iframe/play-button has no intrinsic size the way an <img> does. */
+.lightbox-video {
+  width: min(92vw, 82vh * 16 / 9);
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.lightbox-video[hidden] { display: none; }
+.lightbox-video .gallery-video-play,
+.lightbox-video .gallery-video-iframe {
+  width: 100%;
+  height: 100%;
+}
 .lightbox-count {
   margin-top: 0.75rem;
   color: var(--text-dim);
@@ -1993,223 +2012,333 @@ code {
 /* ==========================================================================
    Timeline page
    ========================================================================== */
-body[data-page="timeline"] .site-main {
-  max-width: none;
-  padding-left: clamp(1rem, 3vw, 2.5rem);
-  padding-right: clamp(1rem, 3vw, 2.5rem);
-}
-
 .tl-head p { max-width: 68ch; }
 
-.tl-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1.25rem;
-  margin-top: 1rem;
-  font-size: 0.8rem;
-  color: var(--text-dim);
-}
-.tl-legend-item { display: inline-flex; align-items: center; gap: 0.4rem; }
-.tl-legend-swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  display: inline-block;
-}
-.tl-legend-swatch--self  { background: #6fcf97; }
-.tl-legend-swatch--vibe  { background: var(--accent); }
-.tl-legend-swatch--collab { background: #6aa9e8; }
-.tl-legend-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--text);
-  display: inline-block;
-  border: 2px solid var(--bg);
-  outline: 1px solid var(--border);
-}
-.tl-legend-star { color: #f2c94c; font-size: 0.9rem; line-height: 1; }
+/* Two columns: a fixed-width axis column on the left (a year/month ruler
+   plus certifications and achievements as point events), and a
+   horizontally-scrollable lane area on the right where each project is a
+   thin vertical line. Both columns share the same day-to-pixel scale
+   (build_timeline computes top_px/height_px for everything), so a
+   project's line, a cert's node, and a given month on the ruler all line
+   up vertically, even though only the right side scrolls.
 
+   Nothing here sizes a box from a date span and puts text inside it --
+   that was the old bug. A project's label is a fixed-width card that
+   floats next to its node and wraps normally, regardless of how short
+   the line under it is. */
 .tl-frame {
-  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
   margin: 2.5rem 0 4rem;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-.tl-canvas {
-  position: relative;
-  width: 100%;
 }
 
-/* --- Year / today axis, far left --- */
-.tl-axis {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 1;
+/* --- Left column: cert/achievement events + a year/month ruler --- */
+.tl-axis-col {
+  position: relative;
+  flex: 0 0 17rem;
+  width: 17rem;
+  display: flex;
+  margin-right: 1rem;
 }
-.tl-year-mark { position: absolute; left: 0; width: 100%; }
-.tl-year-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  border-top: 1px dashed var(--border);
+.tl-events-strip {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-right: 0.75rem;
 }
-.tl-year-label {
+.tl-today-mark {
   position: absolute;
   left: 0;
-  top: -0.7em;
-  background: var(--bg);
-  padding-right: 0.5rem;
-  font-size: 0.72rem;
-  color: var(--text-dim);
-  font-weight: 600;
-  letter-spacing: 0.03em;
-}
-.tl-today-mark { position: absolute; left: 0; width: 100%; }
-.tl-today-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  border-top: 2px solid var(--accent);
-  opacity: 0.7;
+  right: 0.75rem;
+  transform: translateY(-50%);
+  text-align: right;
 }
 .tl-today-label {
-  position: absolute;
-  right: 0;
-  top: -0.8em;
-  background: var(--bg);
-  padding-left: 0.5rem;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
+  font-weight: 700;
   color: var(--accent);
-  font-weight: 600;
-}
-
-/* --- Center spine for certs/achievements --- */
-.tl-spine {
-  position: absolute;
-  left: var(--tl-spine-x, 46%);
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--border);
-  z-index: 1;
+  background: var(--bg);
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
 }
 
 .tl-event {
   position: absolute;
-  left: var(--tl-spine-x, 46%);
-  transform: translate(-50%, -50%);
-  z-index: 3;
+  left: 0;
+  right: 0.75rem;
+  transform: translateY(-50%);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
 }
-.tl-event-mark {
-  width: 22px;
-  height: 22px;
+.tl-event-node {
   flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 0.1rem;
   border-radius: 50%;
   background: var(--bg);
   border: 2px solid #f2c94c;
   color: #f2c94c;
   display: grid;
   place-items: center;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
 }
-.tl-event--certification .tl-event-mark { border-color: #6fcf97; color: #6fcf97; }
+.tl-event--certification .tl-event-node { border-color: #6fcf97; color: #6fcf97; }
 .tl-event-card {
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.4rem 0.65rem;
   display: flex;
   flex-direction: column;
-  min-width: 10rem;
-  max-width: 15rem;
   line-height: 1.3;
+  min-width: 0;
 }
-.tl-event-title { font-size: 0.85rem; color: var(--text); }
+.tl-event-title {
+  font-size: 0.82rem;
+  color: var(--text);
+  text-decoration: none;
+}
 a.tl-event-title:hover { color: var(--accent); }
-.tl-event-subtitle { font-size: 0.72rem; color: var(--text-dim); }
+.tl-event-subtitle { font-size: 0.7rem; color: var(--text-dim); }
 .tl-event-date {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: var(--text-dim);
-  margin-top: 0.15rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  margin-top: 0.1rem;
 }
-/* Certs/achievements alternate to the right of the spine on wide screens,
-   left on narrow — keeps the card from colliding with the nearest lane. */
-.tl-event:nth-child(odd) { justify-content: flex-start; }
-.tl-event:nth-child(even) { flex-direction: row-reverse; }
 
-/* --- Project lanes, right side of the spine --- */
-.tl-lanes {
+/* A ruler running the full height along the column's right edge: a tick
+   + label per month, January's bigger/bolder with the year, every other
+   month a small dim abbreviation -- the same major/minor-tick idea as a
+   physical ruler. */
+.tl-ruler {
+  position: relative;
+  flex: 0 0 3.25rem;
+  width: 3.25rem;
+  border-left: 1px solid var(--border);
+}
+.tl-ruler-mark {
   position: absolute;
-  left: calc(var(--tl-spine-x, 46%) + 3rem);
+  left: 0;
   right: 0;
-  top: 0;
-  bottom: 0;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  pointer-events: none;
 }
-.tl-bar {
+.tl-ruler-tick {
+  width: 0.4rem;
+  border-top: 1px solid var(--border);
+  flex: none;
+}
+.tl-ruler-mark--year .tl-ruler-tick { width: 0.65rem; border-top-color: var(--text-dim); }
+.tl-ruler-label {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  opacity: 0.7;
+  white-space: nowrap;
+}
+.tl-ruler-mark--year .tl-ruler-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  opacity: 1;
+  letter-spacing: 0.03em;
+}
+
+/* --- Right side: horizontally-scrolling parallel project lanes --- */
+.tl-lanes-col {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.tl-scroll-hint {
+  margin: 0 0 0.5rem 2rem;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+.tl-lanes-scroll {
+  overflow: auto;
+  padding: 0.5rem 1rem 2rem 2rem;
+}
+.tl-lanes {
+  position: relative;
+  --tl-lane-width: 13rem;
+  width: calc(var(--tl-lane-count, 1) * var(--tl-lane-width));
+  min-width: 100%;
+}
+
+.tl-guide-line {
   position: absolute;
-  width: calc(100% / var(--tl-lane-count) - 0.9rem);
-  min-width: 9rem;
-  display: block;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  border-left-width: 4px;
-  background: var(--bg-raised);
-  padding: 0.5rem 0.65rem;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--border);
+}
+.tl-guide-line--today { border-top: 2px solid var(--accent); opacity: 0.6; }
+
+/* Anchor point for one project: `left`/`top`/`height` are set inline from
+   build_timeline's pixel math. Everything inside is positioned relative
+   to this anchor, and the label is deliberately NOT constrained by
+   `height` -- it can float past the line's own top/bottom without being
+   clipped, since .tl-lanes-scroll only clips at its own outer edges. */
+.tl-line {
+  position: absolute;
+  width: 1px;
   text-decoration: none;
-  color: var(--text);
-  overflow: visible;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  color: inherit;
+  display: block;
 }
-.tl-bar:hover {
-  border-color: var(--accent);
-  transform: translateX(2px);
+
+/* One <span> per build_timeline segment instead of a single solid track.
+   Each fades top-to-bottom over its OWN height via rgba stops (not the
+   `opacity` property, which would compound across overlapping elements)
+   and every segment runs the identical 0%-100% fade regardless of how
+   tall it is -- that's what makes shipping often read as solid (many
+   short segments, each barely past its own reset before the next one)
+   and going quiet read as faded (one long segment spends most of its
+   length in the faded tail). See build_timeline's docstring. */
+.tl-line-seg {
+  position: absolute;
+  left: 0;
+  width: 3px;
+  border-radius: 2px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.85) 0%, rgba(var(--accent-rgb), 0.06) 100%);
 }
-.tl-bar--self   { border-left-color: #6fcf97; }
-.tl-bar--vibe   { border-left-color: var(--accent); }
-.tl-bar--collab { border-left-color: #6aa9e8; }
-.tl-bar--ongoing,
-.tl-bar--estimated {
+.tl-line-seg--estimated {
   background: repeating-linear-gradient(
-    135deg, var(--bg-raised), var(--bg-raised) 10px,
-    rgba(255, 157, 61, 0.05) 10px, rgba(255, 157, 61, 0.05) 20px
+    180deg,
+    rgba(var(--accent-rgb), 0.55) 0px, rgba(var(--accent-rgb), 0.55) 3px,
+    transparent 3px, transparent 7px
   );
 }
-.tl-bar--estimated { opacity: 0.82; border-style: dashed; }
 
-.tl-bar-label { display: flex; flex-direction: column; gap: 0.1rem; }
-.tl-bar-name { font-size: 0.88rem; font-weight: 600; }
-.tl-bar-range { font-size: 0.72rem; color: var(--text-dim); }
-.tl-bar-versions {
-  margin-top: 0.15rem;
-  align-self: flex-start;
-  font-size: 0.68rem;
-  color: var(--accent);
-  padding: 0.05rem 0.4rem;
-  border: 1px solid var(--accent-dim);
-  border-radius: 999px;
-}
-
-.tl-dot {
+.tl-line-node {
   position: absolute;
-  left: -3px;
+  top: -5px;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--bg);
+  transform: translateX(-50%);
+  transition: transform 0.15s ease;
+}
+.tl-line:hover .tl-line-node { transform: translateX(-50%) scale(1.15); }
+
+/* A version release: a small solid dot (always full opacity, regardless
+   of its segment's fade -- it's the reset point, so it should always
+   read as "fresh") plus a compact floating label carrying the version
+   and exact date. The label's `top` is a separate, nudged position (see
+   build_timeline) so a burst of close-together releases doesn't print
+   overlapping text; the dot itself stays at its true date either way. */
+.tl-line-dot {
+  position: absolute;
+  left: 0;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--text);
+  background: var(--accent);
   border: 2px solid var(--bg);
-  outline: 1px solid var(--border);
+  outline: 1px solid var(--accent);
+  transform: translateX(-50%);
+  z-index: 2;
+}
+.tl-line-dot-label {
+  position: absolute;
+  left: 9px;
+  transform: translateY(-50%);
+  font-size: 0.6rem;
+  line-height: 1;
+  color: var(--text-dim);
+  background: var(--bg);
+  padding: 0.1rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+.tl-line:hover .tl-line-dot-label,
+.tl-line:focus-visible .tl-line-dot-label {
+  opacity: 1;
+}
+
+.tl-line-label {
+  position: absolute;
+  top: -0.55rem;
+  left: 10px;
+  width: 10.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.4rem 0.55rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  line-height: 1.3;
+  transition: border-color 0.15s ease;
+  z-index: 3;
+}
+.tl-line:hover .tl-line-label { border-color: var(--accent); }
+.tl-line-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.tl-line-label .build-chip { align-self: flex-start; margin: 0.1rem 0; }
+.tl-line-range {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.tl-line-versions {
+  align-self: flex-start;
+  font-size: 0.62rem;
+  color: var(--accent);
+  padding: 0.02rem 0.35rem;
+  border: 1px solid var(--accent-dim);
+  border-radius: 999px;
+  margin-top: 0.05rem;
+}
+
+@media (max-width: 900px) {
+  .tl-frame { flex-direction: column; }
+  .tl-axis-col {
+    width: 100%;
+    flex: none;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+    height: auto !important;
+    position: static;
+  }
+  /* Point events and the ruler stack in normal flow on mobile instead of
+     being pixel-positioned against a vertical scale shared with the (now
+     separate, below) lanes column. */
+  .tl-today-mark { display: none; }
+  .tl-event { position: static; transform: none; margin-bottom: 0.75rem; }
+  .tl-ruler { display: none; }
+  .tl-lanes-col { width: 100%; }
+  .tl-lanes-scroll {
+    /* .tl-frame's align-items: flex-start (needed so the two columns
+       don't stretch to match each other's height in the desktop
+       side-by-side layout) also applies to the CROSS axis once
+       flex-direction flips to column here -- which is width. Without an
+       explicit width, this box was sizing to its content's natural width
+       (as wide as all the lanes laid end to end) instead of the screen,
+       so the whole page scrolled sideways rather than just this box. */
+    width: 100%;
+    max-width: 100%;
+    padding: 1rem 0.5rem 2rem 0;
+  }
 }
 
 /* Version-count chip on /projects cards */
@@ -2224,22 +2353,4 @@ a.tl-event-title:hover { color: var(--accent); }
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-@media (max-width: 900px) {
-  /* Below this width, spine + lanes side-by-side stops working — stack
-     the spine's events above the lanes instead of interleaving them. */
-  .tl-spine, .tl-event { left: 1.1rem; }
-  .tl-event { transform: translateY(-50%); }
-  .tl-event:nth-child(even) { flex-direction: row; }
-  .tl-event-mark { width: 18px; height: 18px; font-size: 0.65rem; }
-  .tl-lanes { left: 2.6rem; }
-  .tl-bar { width: calc(100% / var(--tl-lane-count) - 0.5rem); min-width: 7.5rem; }
-}
 
-@media (max-width: 640px) {
-  /* One lane per row at this width regardless of computed lane count —
-     horizontal packing stops being legible on a phone. Spine stays put
-     (left, from the 900px rule above) rather than disappearing. */
-  .tl-lanes { --tl-lane-count: 1 !important; left: 2.6rem; right: 0.5rem; }
-  .tl-bar { width: calc(100% - 0.5rem) !important; min-width: 0; }
-  .tl-event-card { max-width: 11rem; }
-}

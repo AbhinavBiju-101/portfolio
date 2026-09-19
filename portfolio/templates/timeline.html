@@ -5,87 +5,93 @@
 <section class="page-head tl-head">
   <h1>Timeline</h1>
   <p>
-    Every project plotted by when it started and how long it ran — oldest at the
-    top, scrolling down toward now. Projects worked on at the same time sit in
-    side-by-side lanes rather than overlapping. Dots on a bar are dated version
-    releases; the center spine marks certifications and awards.
+    Every project plotted on a shared time axis, oldest at the top.
+    Projects worked on at the same time run in parallel lines side by
+    side — scroll right if there's more than fits. A line fades the
+    longer it goes without a new version, and snaps back to full
+    brightness at every release — so a project shipped often reads as
+    solid, and one left alone fades out. Certifications, achievements,
+    and a year/month ruler sit in the column on the left.
   </p>
-  {% if tl.bars %}
-  <div class="tl-legend">
-    <span class="tl-legend-item"><span class="tl-legend-swatch tl-legend-swatch--self"></span>Self-coded</span>
-    <span class="tl-legend-item"><span class="tl-legend-swatch tl-legend-swatch--vibe"></span>Built with Claude</span>
-    <span class="tl-legend-item"><span class="tl-legend-swatch tl-legend-swatch--collab"></span>Collaborative</span>
-    <span class="tl-legend-item"><span class="tl-legend-dot"></span>Dated version release</span>
-    <span class="tl-legend-item"><span class="tl-legend-star">&#9733;</span>Certification / award</span>
-  </div>
-  {% endif %}
 </section>
 
 {% if not tl.bars and not tl.point_events %}
 <p>Nothing dated yet — add a <code>"created"</code> month/year to a project in <code>app.py</code>.</p>
 {% else %}
-<section class="tl-frame" data-tl-frame>
-  <div class="tl-canvas" style="height: {{ tl.height_px }}px;">
-
-    <div class="tl-axis" aria-hidden="true">
-      {% for mark in tl.year_marks %}
-      <div class="tl-year-mark" style="top: {{ mark.top_px }}px;">
-        <span class="tl-year-line"></span>
-        <span class="tl-year-label">{{ mark.year }}</span>
-      </div>
-      {% endfor %}
+<div class="tl-frame">
+  <div class="tl-axis-col" style="height: {{ tl.height_px }}px;">
+    <div class="tl-events-strip">
       {% if tl.today_top_px is not none %}
       <div class="tl-today-mark" style="top: {{ tl.today_top_px }}px;">
-        <span class="tl-today-line"></span>
         <span class="tl-today-label">Today</span>
       </div>
       {% endif %}
-    </div>
-
-    <div class="tl-spine" aria-hidden="true"></div>
-
-    {% for event in tl.point_events %}
-    <div class="tl-event tl-event--{{ event.kind }}" style="top: {{ event.top_px }}px;">
-      <span class="tl-event-mark" aria-hidden="true">{{ '★' if event.kind == 'achievement' else '✓' }}</span>
-      <div class="tl-event-card">
-        {% if event.url %}
-        <a class="tl-event-title" href="{{ event.url }}" target="_blank" rel="noopener">{{ event.title }}</a>
-        {% elif event.project_slug %}
-        <a class="tl-event-title" href="{{ url_for('project_detail', slug=event.project_slug) }}">{{ event.title }}</a>
-        {% else %}
-        <span class="tl-event-title">{{ event.title }}</span>
-        {% endif %}
-        {% if event.subtitle %}<span class="tl-event-subtitle">{{ event.subtitle }}</span>{% endif %}
-        <span class="tl-event-date">{{ event.date_label }}</span>
-      </div>
-    </div>
-    {% endfor %}
-
-    <div class="tl-lanes" style="--tl-lane-count: {{ tl.lane_count }};">
-      {% for it in tl.bars %}
-      {% set badge = build_chip(it.project) %}
-      <a class="tl-bar tl-bar--{{ it.project.build or 'self' }} {{ 'tl-bar--estimated' if it.estimated }} {{ 'tl-bar--ongoing' if it.ongoing }}"
-         href="{{ url_for('project_detail', slug=it.project.slug) }}"
-         style="top: {{ it.top_px }}px; height: {{ it.height_px }}px; left: calc({{ it.lane }} * (100% / var(--tl-lane-count)));">
-        <span class="tl-bar-label">
-          <span class="tl-bar-name">{{ it.project.name }}</span>
-          <span class="tl-bar-range">{{ it.start_label }} &ndash; {{ it.end_label }}</span>
-          {% if it.version_count %}
-          <span class="tl-bar-versions">{{ it.version_count }} version{{ 's' if it.version_count != 1 }}{{ ' documented' if not it.has_dated_versions }}</span>
+      {% for event in tl.point_events %}
+      <div class="tl-event tl-event--{{ event.kind }}" style="top: {{ event.top_px }}px;">
+        <span class="tl-event-node" aria-hidden="true">{{ '★' if event.kind == 'achievement' else '✓' }}</span>
+        <div class="tl-event-card">
+          {% if event.url %}
+          <a class="tl-event-title" href="{{ event.url }}" target="_blank" rel="noopener">{{ event.title }}</a>
+          {% elif event.project_slug %}
+          <a class="tl-event-title" href="{{ url_for('project_detail', slug=event.project_slug) }}">{{ event.title }}</a>
+          {% else %}
+          <span class="tl-event-title">{{ event.title }}</span>
           {% endif %}
-        </span>
-        {% for dot in it.dots %}
-        <span class="tl-dot" style="top: {{ dot.top_px }}px;" title="v{{ dot.version }} &mdash; {{ dot.date.strftime('%d %b %Y') }}"></span>
-        {% endfor %}
-      </a>
+          {% if event.subtitle %}<span class="tl-event-subtitle">{{ event.subtitle }}</span>{% endif %}
+          <span class="tl-event-date">{{ event.date_label }}</span>
+        </div>
+      </div>
       {% endfor %}
     </div>
-
+    <div class="tl-ruler">
+      {% for mark in tl.month_marks %}
+      <div class="tl-ruler-mark {{ 'tl-ruler-mark--year' if mark.is_year }}" style="top: {{ mark.top_px }}px;">
+        <span class="tl-ruler-tick"></span>
+        <span class="tl-ruler-label">{{ mark.label }}</span>
+      </div>
+      {% endfor %}
+    </div>
   </div>
-</section>
-{% endif %}
-{% endblock %}
 
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/timeline.js') }}"></script>
+  <div class="tl-lanes-col">
+    {% if tl.lane_count > 1 %}
+    <p class="tl-scroll-hint">&#8596; scroll to see all {{ tl.lane_count }} parallel lanes</p>
+    {% endif %}
+    <div class="tl-lanes-scroll">
+      <div class="tl-lanes" style="height: {{ tl.height_px }}px; --tl-lane-count: {{ tl.lane_count }};">
+        {% for mark in tl.month_marks if mark.is_year %}
+        <div class="tl-guide-line" style="top: {{ mark.top_px }}px;"></div>
+        {% endfor %}
+        {% if tl.today_top_px is not none %}
+        <div class="tl-guide-line tl-guide-line--today" style="top: {{ tl.today_top_px }}px;"></div>
+        {% endif %}
+        {% for it in tl.bars %}
+        <a class="tl-line" href="{{ url_for('project_detail', slug=it.project.slug) }}"
+           style="top: {{ it.top_px }}px; height: {{ it.height_px }}px; left: calc(var(--tl-lane-width) * {{ it.lane }} + var(--tl-lane-width) / 2);">
+          {% for seg in it.segments %}
+          <span class="tl-line-seg {{ 'tl-line-seg--estimated' if seg.estimated }}"
+                style="top: {{ seg.top_px }}px; height: {{ seg.height_px }}px;"></span>
+          {% endfor %}
+          {% for dot in it.dots %}
+          <span class="tl-line-dot" style="top: {{ dot.top_px }}px;" title="{{ dot.version }} — {{ dot.date_label }}"></span>
+          {% if it.dots|length <= 8 %}
+          <span class="tl-line-dot-label" style="top: {{ dot.label_top_px }}px;">v{{ dot.version }} · {{ dot.date_label }}</span>
+          {% endif %}
+          {% endfor %}
+          <span class="tl-line-node"></span>
+          <span class="tl-line-label">
+            <span class="tl-line-name">{{ it.project.name }}</span>
+            {{ build_chip(it.project, with_label=False) }}
+            <span class="tl-line-range">{{ it.start_label }} &#8211; {{ it.end_label }}</span>
+            {% if it.version_count %}
+            <span class="tl-line-versions">{{ it.version_count }} version{{ 's' if it.version_count != 1 }}</span>
+            {% endif %}
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

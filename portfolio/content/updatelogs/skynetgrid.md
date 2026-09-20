@@ -5,6 +5,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v1 — Initial Prototype
+_Last modified: 08 Dec 2025, 08:40_
+
 **Added**
 - Core three-part architecture: `Server` (hub), `Node` (client agent), `GUI` (admin console).
 - `Server`: accepts client sockets, tracks connected nodes in a `HashMap`, first-connected node becomes "host," broadcasts messages to all nodes.
@@ -14,6 +16,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v2 — Live Status Grid + Concurrency Fixes
+_Last modified: 08 Dec 2025, 21:54_
+
 **Added**
 - `startNodeRefreshTimer` / `refreshNodeStatus`: background daemon thread polls node status every second and recolors the grid (red = active, black = offline, yellow text = host).
 - `Node.queryHost()` / `queryNodes()` retry logic (3 attempts).
@@ -30,6 +34,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v3 — File Transfer, Remote Launch, Command Menu
+_Last modified: 09 Dec 2025, 00:45_
+
 **Added**
 - Function menu: **Broadcast, Send File, Launch class (java), Open file, Shutdown, Run Command in Terminal.**
 - Password re-prompt flow (`askPassword()`), with per-action confirmation dialogs.
@@ -43,6 +49,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v4 — Remote "Update All" + Reconnect Handling
+_Last modified: 09 Dec 2025, 01:59_
+
 **Added**
 - **"Update all"** menu action — pushes files to clients with a forced destination path (`/home/student/Downloads/SkynetGrid`), then restarts the client service.
 - `Node`: systemd service start/stop helpers, automatic reconnect-after-disconnect logic, `restartHere()` to relaunch the process from a new install location.
@@ -54,6 +62,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v5 — Shutdown Filtering
+_Last modified: 09 Dec 2025, 05:37_
+
 **Added**
 - `Node.sendShutdownRequest(sender)` — shutdown requests now carry the requester's identity.
 - `Server.shutdownServer(filter)` — shutdown can target a filtered subset of nodes instead of everyone.
@@ -64,6 +74,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v6 — Persistent Location File
+_Last modified: 09 Dec 2025, 07:33_
+
 **Added**
 - `Node.readLocationFromFile()` — node location is now read from a `Location` file on disk instead of being hardcoded, so the same build can be deployed to many machines with different identities.
 
@@ -74,6 +86,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v7 — Multi-Server Discovery
+_Last modified: 09 Dec 2025, 08:56_
+
 **Added**
 - `Node`: tries a list of candidate `SERVERS` IPs in turn rather than one fixed address; virtual/Docker/veth network interfaces are now explicitly filtered out of IP discovery.
 - `GUI.main()` becomes the real entry point (previously `start()`).
@@ -81,6 +95,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v8 — LAN Auto-Discovery
+_Last modified: 10 Dec 2025, 01:17_
+
 **Added**
 - `Node.discoverServer()` — broadcasts on the LAN to find a running server automatically instead of relying on a static IP list.
 - `Server.getLocalLanAddress()` — determines its own LAN-facing address for discovery replies.
@@ -92,6 +108,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v9 — UDP Discovery Refinement
+_Last modified: 10 Dec 2025, 05:24_
+
 **Added**
 - Fixed listening port (`50001`) for discovery `DatagramSocket`.
 - Loopback/Docker interface filtering re-applied to the discovery path.
@@ -100,12 +118,16 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v10 — Leader Election
+_Last modified: 10 Dec 2025, 06:42_
+
 **Added**
 - `Node.tryBecomeServer()` — nodes attempt to "lock" the server role via a socket-based election; if no server is discovered, the first node to grab the lock spins up the `Server` locally and the rest connect to it. This removed the need for a person to manually start a hub.
 
 ---
 
 ## v11 — Folder Transfer + Admin Password Split
+_Last modified: 11 Dec 2025, 07:51_
+
 **Added**
 - **"Send Folder"** action — recursively walks a chosen folder and sends every file to selected clients.
 - **"Stop Server"** action.
@@ -118,6 +140,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v12 — Async Multi-File Update, Election Port
+_Last modified: 12 Dec 2025, 00:46_
+
 **Added**
 - `Server`: dedicated `ELECTION_PORT` (49999) for the leader-election handshake, kept open deliberately ("do NOT close this socket") so late-joining nodes can detect an existing server.
 - `Update all` reworked to send files to every selected computer **asynchronously in parallel**, waiting for all transfers to finish before restarting services, with a confirmation dialog when complete.
@@ -128,6 +152,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v13 — Remote Terminal Execution
+_Last modified: 23 Dec 2025, 08:48_
+
 **Added**
 - **"Run Command in Terminal"** — runs an arbitrary bash command on the target node via `ProcessBuilder`, inheriting the terminal's I/O so spawned GUI windows are visible on the client.
 - Toggleable multi-select highlighting on the grid buttons.
@@ -135,6 +161,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v14 — Live Screen Streaming
+_Last modified: 11 Jan 2026, 23:08_
+
 **Added**
 - **"View Screen"** action — first version of remote screen viewing.
 - `Node`: new inner classes `ScreenStreamer` (captures the local screen via `java.awt.Robot`, JPEG-encodes frames, streams at ~20 FPS to the server) and `ScreenViewer` (Swing panel that receives and paints incoming frames).
@@ -144,6 +172,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v15 — Adaptive Screen Streaming
+_Last modified: 12 Jan 2026, 00:39_
+
 **Added**
 - Change-detection: `computeHash()` / `hasChanged()` — frames are only sent when the screen content actually changes (perceptual hash + threshold), cutting bandwidth versus constant 20 FPS.
 - Socket timeouts and a cleaner `receiveLoop()`/`cleanup()` lifecycle for the viewer.
@@ -154,6 +184,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v16 — Version Reporting, Display Server Detection
+_Last modified: 14 Jan 2026, 00:09_
+
 **Added**
 - `Node.queryVersionAsync()` — nodes report their build `VERSION` back to the admin so the GUI can show per-node version tooltips.
 - `isX11Session()` / `isWaylandSession()` detection (screen capture behaves differently under Wayland).
@@ -165,6 +197,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v17 — Screen Viewer Window Polish
+_Last modified: 14 Jan 2026, 06:05_
+
 **Added**
 - Proper viewer window lifecycle: cleanup on close, near-square auto grid sizing for multi-viewer layouts, host highlighting and status coloring in the viewer chrome.
 - **"Toggle Admin Nodes"** — show/hide admin-only nodes in the grid.
@@ -172,6 +206,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v18 — Maximize/Restore Viewer
+_Last modified: 14 Jan 2026, 19:56_
+
 **Added**
 - Click-to-maximize screen viewer with mouse enter/exit/click handling and a restore-to-grid control.
 - Startup watchdog for the viewer (detects a node that never sends a first frame vs. one that's genuinely idle).
@@ -179,6 +215,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v19 — Remote Keyboard & Mouse Control
+_Last modified: 15 Jan 2026, 06:43_
+
 **Added**
 - Full remote-input forwarding: `MOUSE_MOVE`, `MOUSE_DOWN`, `MOUSE_UP`, `SCROLL`, `KEYDOWN`, `KEYUP` message types.
 - `Node.handleInputEvent()` replays the received input locally via `java.awt.Robot`.
@@ -189,10 +227,14 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v20A — Theming Pass
+_Last modified: 15 Jan 2026, 07:33_
+
 **Added**
 - Darker function-panel and button color scheme, smaller button font, custom scrollbar styling import.
 
 ## v20B — Server Election Rework (Successor/Follower Roles)
+_Last modified: 16 Jan 2026, 04:49_
+
 **Added**
 - Formal `Role` enum (`NORMAL`, `SUCCESSOR`, `FOLLOWER`) replacing the earlier binary "am I the server" lock: a node can now be pre-designated as a **successor** and take over hub duties if the server disappears, or **follow** a newly announced successor.
 - `discoverServerWithGrace()` — grace period so nodes don't immediately re-elect during a brief server restart.
@@ -203,6 +245,8 @@ SkynetGrid is a Java LAN administration tool (`GUI` admin console + `Server` hub
 ---
 
 ## v21 — Election Rollback
+_Last modified: 18 Jan 2026, 05:17_
+
 **Changed**
 - The v20B role-based election/successor system was reverted back to the simpler v12-era direct election + reconnect model (`tryBecomeServer`, `closeClient`). The successor/follower `Role` machinery was removed as too fragile for the lab network conditions.
 - `GUI.start()` no longer starts its embedded `Node` from `main()` directly (moved).
@@ -216,12 +260,23 @@ An experimental, ultimately abandoned variant found alongside v21:
 ---
 
 ## v22 — Protocol Version Bump, Node Init Refactor
+_Last modified: 20 Jan 2026, 06:31_
+
 **Added**
 - `Node.initialize()` and `SERVER_VERSION` tracking for basic client/server version negotiation.
 
 ---
 
+## v21 (fail) — Abandoned Rewrite
+_Last modified: 18 Feb 2026, 20:33_
+
+Not actually from the v21/v22 window despite the folder name — its `GUI.java`, `Node.java`, and `Server.java` are dated a full month after v22. This was a rewrite attempt started about a month into the v23+ stretch, named "v21" to mark what it was based on rather than when it happened, then set aside; nothing from it made it into a later numbered version.
+
+---
+
 ## v23 — Maximize/Snap UI, Compile-and-Run Remote
+_Last modified: 23 Feb 2026, 06:32_
+
 **Added**
 - `ScreenWrapperPanel` — dedicated wrapper class handling maximize/restore, hover UI (top-center label, maximize button), and all keyboard/mouse forwarding for the viewer (extracted out of `GUI` into its own reusable component).
 - **Remote compile workflow**: admin can send raw Java source files to selected clients, have them compiled in place, and restart the client automatically.
@@ -230,6 +285,8 @@ An experimental, ultimately abandoned variant found alongside v21:
 ---
 
 ## v24 — Screenshot & Browser-Pause "Prank" Commands
+_Last modified: 26 Feb 2026, 05:04_
+
 **Added**
 - **"Take Screenshot"** action with a dedicated camera-icon UI control on the viewer.
 - **"Pause Browser"** action with a duration prompt.
@@ -242,6 +299,8 @@ An experimental, ultimately abandoned variant found alongside v21:
 ---
 
 ## v25 — FPS-Adaptive Streaming
+_Last modified: 26 Feb 2026, 07:22_
+
 **Added**
 - Live FPS counter/label on the viewer, computed via `updateFps()`.
 - `setRepaintRate()` — viewer repaint speed increases when maximized (more responsive when actively watched) and drops when minimized (saves CPU/bandwidth).
@@ -250,6 +309,8 @@ An experimental, ultimately abandoned variant found alongside v21:
 ---
 
 ## v26 — Alt+Tab, Log Viewer, Self-Healing Install
+_Last modified: 26 Feb 2026, 08:54_
+
 **Added**
 - **"Alt+Tab"** remote action (synthesizes the key combo on the target).
 - **"View Logs"** action.
@@ -262,6 +323,8 @@ An experimental, ultimately abandoned variant found alongside v21:
 ---
 
 ## v27 — Query Console, Grid Layout Rework
+_Last modified: 27 Feb 2026, 00:42_
+
 **Added**
 - **"Run Query"** action — free-text command box whose output is displayed back in a results window (`showQueryResult`), distinct from the older "fire-and-forget" terminal command.
 - Grid buttons reorganized into logical groups (a "Transfer" submenu bundling Send File/Send Folder/Launch/Open) and a `shouldReverseGrid()` layout tweak so buttons in odd rows face the opposite direction (visual symmetry for the physical lab layout).
@@ -273,6 +336,8 @@ An experimental, ultimately abandoned variant found alongside v21:
 ---
 
 ## v28 — Login Screen Restoration
+_Last modified: 27 Feb 2026, 07:45_
+
 **Changed**
 - Password gate (`askPassword`) and the "Incorrect Password" dialog were reinstated after being effectively bypassed in the v21 "fail" experiment lineage.
 - Viewer repaint rate tuned (60 FPS max when focused instead of 50).
@@ -280,6 +345,8 @@ An experimental, ultimately abandoned variant found alongside v21:
 ---
 
 ## v29 — Background Decode Thread, Persistent Autostart Naming
+_Last modified: 27 Feb 2026, 22:25_
+
 **Added**
 - Dedicated single-thread `ExecutorService` for frame decoding (further isolates network I/O from UI work).
 - Client autostart service renamed from `"SkynetGrid"` to the disguised name **`"systemd-runtime"`**, matching the covert-install scheme described in the deployment instructions.
@@ -290,23 +357,31 @@ An experimental, ultimately abandoned variant found alongside v21:
 ---
 
 ## v30 — Screen Recording (AVI Export)
+_Last modified: 28 Feb 2026, 00:24_
+
 **Added**
 - **Screen recording** — a "Record" button captures a sequence of frames from a viewer and writes them out as an uncompressed/MJPEG **AVI file** (hand-rolled RIFF/AVI container writer: `writeAvi`, `writeLe16`, `writeLe32`, header/index chunk construction) with a recording indicator overlay.
 
 ---
 
 ## v31 — Stability Checkpoint
+_Last modified: 28 Feb 2026, 05:10_
+
 No functional code changes from v30; packaged as a checkpoint build (identical `GUI.java`/`Node.java`/`Server.java`/`RoundedButton.java` sources).
 
 ---
 
 ## v32 — Remote File Explorer (v1)
+_Last modified: 02 Mar 2026, 19:54_
+
 **Added**
 - **"File Explorer"** action — new file-browser window listing a remote directory (parsed from `ls -la` output) with Up/Refresh/Download/Delete buttons and double-click-to-open-folder navigation.
 
 ---
 
 ## v33 — File Explorer Rewrite (Full-Featured)
+_Last modified: 02 Mar 2026, 21:07_
+
 **Added**
 - `FileExplorer` promoted to its own full class (previously inline in `GUI`) with: toolbar, path bar with direct navigation, status bar, sortable listing (folders first), custom `FileListRenderer` with **hand-drawn file-type icons** (folder, document, image, audio, video, archive, symlink, generic/unknown — all drawn programmatically, no image assets).
 - Create Folder, Rename, Delete (with confirmation), Download File, and **Download Folder** (server-side zip, then transferred and cleaned up).
@@ -318,6 +393,8 @@ No functional code changes from v30; packaged as a checkpoint build (identical `
 ---
 
 ## v34 — Theme System, Admin Auth Fix (Latest)
+_Last modified: 03 Mar 2026, 00:55_
+
 **Added**
 - **Light/Dark theme switcher** — `"Switch Theme"` menu action.
 - `RoundedButton` rewritten around a `Theme`/`State` model: buttons now have an explicit `State` enum (`OFFLINE`, `ACTIVE`, `SELECTED`, `DEAD`) mapped to themeable colors instead of raw `setBackground()` calls, with `DARK`/`LIGHT` `Theme` presets and helper methods (`markActive()`, `markDead()`, `markOffline()`, `toggleSelected()`, `applyTheme()`).
@@ -328,6 +405,13 @@ No functional code changes from v30; packaged as a checkpoint build (identical `
 
 **Removed**
 - Old preview-only "Download to temp, show image" code path in `FileExplorer`, consolidated into the general download flow.
+
+---
+
+## Final — Repackaged Build
+_Last modified: 04 Mar 2026, 08:11_
+
+An unlabelled folder dated a day after v34, source-checked the same way as every other flagged gap in this log. No functional changes turned up in a diff against v34 — this looks like a repackage/export pass rather than a new feature build, so it's noted here rather than given its own numbered heading.
 
 ---
 

@@ -200,6 +200,61 @@ def _update_log_versions(text):
     return out
 
 
+_VERSION_DATE_LINE_RE = re.compile(r"^_Last modified:\s*(.+?)_\s*$")
+
+
+def _parse_version_timestamp(s):
+    """Parse a version's dated line: 'YYYY-MM-DD[ HH:MM]' (ISO) or the
+    human '08 Dec 2025, 08:40' / '08 Dec 2025' format the update logs are
+    written in. Returns (datetime, has_time); (None, False) if it doesn't
+    parse, so callers can tell "exact minute known" from "day only"."""
+    s = (s or "").strip()
+    m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?", s)
+    if m:
+        y, mo, d, h, mi = m.groups()
+        if h is not None:
+            return datetime(int(y), int(mo), int(d), int(h), int(mi)), True
+        return datetime(int(y), int(mo), int(d)), False
+    for fmt, has_time in (("%d %b %Y, %H:%M", True), ("%d %b %Y", False)):
+        try:
+            return datetime.strptime(s, fmt), has_time
+        except ValueError:
+            continue
+    return None, False
+
+
+def _extract_version_dates_from_log(text):
+    """A project's dated versions, pulled straight out of its update log:
+    any "## heading" immediately followed by a "_Last modified: ..._"
+    line. This is the single source of truth for the timeline's version
+    dots -- there's no separate table to keep in sync. Edit a date here
+    and both the changelog text and the timeline update together.
+    Returns (label, timestamp_string) pairs in the same order and using
+    the same labels as _update_log_versions, so the two never disagree
+    about what a version is called."""
+    if not text:
+        return []
+    versions = _update_log_versions(text)
+    headings_with_dates = {v["heading"] for v in versions}
+    lines = text.splitlines()
+    out = []
+    for i, line in enumerate(lines):
+        if not line.startswith("## "):
+            continue
+        heading = line[3:].strip()
+        if heading not in headings_with_dates:
+            continue  # summary/planned section
+        j = i + 1
+        while j < len(lines) and not lines[j].strip():
+            j += 1
+        if j < len(lines):
+            m = _VERSION_DATE_LINE_RE.match(lines[j].strip())
+            if m:
+                label = re.split(r"\s+[—–-]\s+", heading, maxsplit=1)[0].strip()
+                out.append((label, m.group(1).strip()))
+    return out
+
+
 @app.template_global("project_update_log")
 def project_update_log(project):
     """Template entry point. Returns None (panel hidden) or a dict of
@@ -805,8 +860,8 @@ PROJECTS = [
         "pinned": False,
         "name": "SkynetGrid",
         "tagline": "A distributed remote-administration suite — deployed with school approval on a computer lab, evolving across 34 iterations into a full lab-admin console.",
-        "created": "December 2024",
-        "updated": "August 2025",
+        "created": "December 2025",
+        "updated": "March 2026",
         "description": (
             "A distributed remote-administration system written in Java — a "
             "**Server** hub, lightweight **Node** clients, and a Swing **GUI** "
@@ -2946,51 +3001,38 @@ def _parse_date_loose(s):
 
 
 # --- Timeline ---------------------------------------------------------
-# Real per-build release dates, sourced from actual archive/build
-# timestamps — never estimated or guessed. A project not listed here
-# just doesn't get individual version dots on the timeline yet; its
-# overall span (created -> updated) still shows. When dates for another
-# project's versions are worked out (see content/updatelogs/<slug>.md),
-# add an entry here in the same (version, "YYYY-MM-DD") shape and its
-# dots — and its influence on the "fastest streak" homepage stat — show
-# up automatically, no other code changes needed.
-VERSION_DATES = {
-    "claude-prompt-scheduler": [
-        ("1.0", "2026-09-08"), ("1.2", "2026-09-08"), ("1.2.1", "2026-09-08"),
-        ("1.2.2", "2026-09-08"), ("1.2.3", "2026-09-08"), ("1.2.4", "2026-09-09"),
-        ("1.4.1", "2026-09-10"), ("1.5.0", "2026-09-11"), ("1.6.0", "2026-09-12"),
-        ("1.6.1", "2026-09-12"), ("1.6.2", "2026-09-12"), ("1.6.3", "2026-09-12"),
-        ("1.7.0", "2026-09-12"), ("1.7.1", "2026-09-12"), ("1.7.2", "2026-09-13"),
-        ("1.7.4", "2026-09-13"), ("1.7.5", "2026-09-13"), ("1.7.6", "2026-09-13"),
-        ("2.1.0", "2026-09-14"), ("2.1.1", "2026-09-14"),
-    ],
-}
-
-
 def compute_version_stats():
     """Powers the homepage's "N versions documented across M projects" and
-    "fastest streak" stats — both computed from real data (the update logs
-    and VERSION_DATES above), never hand-typed, so they can't drift out of
-    sync with the logs themselves."""
+    "fastest streak" stats. Both come from the update logs themselves --
+    total_versions/projects_with_logs from their "## " headings, and the
+    per-version dates that drive "fastest streak" from each heading's
+    "_Last modified: ..._" line (see _extract_version_dates_from_log).
+    There's no separate table of dates to maintain: edit a log's dates and
+    both this stat and the timeline's version dots update together."""
     total_versions = 0
     projects_with_logs = 0
+    best_streak = None
     for proj in PROJECTS:
         log = load_update_log(proj["slug"])
-        if log:
-            projects_with_logs += 1
-            total_versions += len(_update_log_versions(log))
+        if not log:
+            continue
+        projects_with_logs += 1
+        total_versions += len(_update_log_versions(log))
 
-    best_streak = None
-    for slug, entries in VERSION_DATES.items():
-        dates = sorted(d for d in (_parse_date_loose(s) for _, s in entries) if d)
+        dated = _extract_version_dates_from_log(log)
+        dates = sorted(dt for dt in (_parse_version_timestamp(s)[0] for _, s in dated) if dt)
         if len(dates) < 2:
             continue
-        span_days = (dates[-1] - dates[0]).days + 1
-        if best_streak is None or len(dates) > best_streak["count"]:
-            proj = get_project(slug)
+        span_days = max((dates[-1] - dates[0]).total_seconds() / 86400, 1 / 24)
+        rate = len(dates) / span_days
+        # "Fastest" means pace, not raw count -- a project with 37 dated
+        # builds spread over 3 months shouldn't outrank one with 20 builds
+        # in a week, so this compares versions-per-day rather than the
+        # bigger number winning outright.
+        if best_streak is None or rate > best_streak["rate"]:
             best_streak = {
-                "count": len(dates), "days": span_days,
-                "project": proj["name"] if proj else slug, "slug": slug,
+                "count": len(dates), "days": max(round(span_days), 1), "rate": rate,
+                "project": proj["name"], "slug": proj["slug"],
             }
 
     return {
@@ -2999,24 +3041,46 @@ def compute_version_stats():
         "fastest_streak": best_streak,
     }
 
-
-TIMELINE_PX_PER_DAY = 2.4
-TIMELINE_MIN_HEIGHT = 1200
-TIMELINE_MAX_HEIGHT = 7000
-TIMELINE_LANE_GAP_DAYS = 10  # min gap before a lane is reused by another project
+TIMELINE_PX_PER_DAY = 12  # 5x the original 2.4 -- spreads weekly/monthly
+                           # releases apart enough that they don't read as
+                           # one crowded clump. Now that the whole timeline
+                           # scrolls in its own frame (see timeline.html),
+                           # the resulting extra height costs nothing.
+TIMELINE_MIN_HEIGHT = 6000
+TIMELINE_MAX_HEIGHT = 40000
+TIMELINE_FADE_WINDOW_DAYS = 30  # a line fades fully within this long of its last
+                                 # release, capped -- see the "segments" comment below
+TIMELINE_TOP_BUFFER = 60     # headroom above the earliest date -- see top_of()
+TIMELINE_BOTTOM_BUFFER = 140  # headroom below the latest date -- see the returned height_px
 
 
 def build_timeline():
-    """Lay out every project as a vertical bar (created -> updated, or ->
-    today if still "TBD"/ongoing) on a shared day-scale, oldest at the top.
-    Overlapping projects — genuinely worked on in parallel — are packed
-    into separate side-by-side lanes with a greedy interval-graph coloring
-    (reuse a lane once its last project ended, with TIMELINE_LANE_GAP_DAYS
-    of breathing room; otherwise open a new lane). Certifications and
-    achievements are plotted as point events on a separate central spine,
-    since they're not tied to one project's timespan. Positions are
-    precomputed here as pixel offsets rather than in the template, so the
-    template stays declarative and the scale logic lives in one place."""
+    """Plot every project as a thin vertical line (start -> updated, or ->
+    an estimated/last-commit end date if still "TBD") on a shared
+    day-scale, oldest at the top, with a small circle node marking where
+    it starts. Every project gets its own permanent lane (see the lane
+    assignment below), so simultaneous work is visible as parallel lines
+    and a project that later gets a new version can never collide with
+    whatever another project's bar happens to occupy at that point.
+    Certifications and achievements plot as point events in a separate
+    fixed column instead of a lane, since they aren't tied to a project's
+    timespan.
+
+    A project's line is split into segments at each dated version release
+    (from that project's update log -- see _extract_version_dates_from_log)
+    and rendered with a top-to-bottom opacity fade *within each segment*,
+    resetting to full opacity at every release -- see "segments" below.
+    Because the fade always runs the same 0%-100% range regardless of a
+    segment's actual length, a project shipping often has many short
+    segments that barely get past "freshly reset" before the next
+    release, reading as mostly solid; a project that goes quiet has one
+    long segment that spends most of its length faded out. That's the
+    whole effect -- no extra weighting or normalization needed.
+
+    Crucially, a project's label text never lives inside a box sized from
+    its date span -- the label floats next to the node at a fixed width
+    and wraps normally (see timeline.html/css), so a short-lived project
+    simply gets a short line, never too little room for its own name."""
     today = date.today()
 
     bars = []
@@ -3030,12 +3094,11 @@ def build_timeline():
         if raw_updated.upper() == "TBD":
             # No recorded end date. A github-linked project gets a real one
             # from its last commit (same live lookup the detail page uses,
-            # and cached the same way — see get_github_last_commit_month).
-            # Without that, stretching the bar all the way to "today" would
-            # claim continuous activity these projects aren't getting, so
-            # the fallback is a bounded estimate instead: longer for a
-            # project with more documented version history, short and
-            # flat for one with none. Estimated bars render lighter and
+            # and cached the same way -- see get_github_last_commit_month).
+            # Without that, claiming continuous activity up to "today" would
+            # overstate it, so the fallback is a bounded estimate instead:
+            # longer for a project with more documented version history,
+            # short and flat for one with none. Estimated lines are
             # labelled with "~" so they read as a guess, not a fact.
             end = None
             if p.get("github"):
@@ -3051,32 +3114,30 @@ def build_timeline():
         if end < start:
             end = start
         dots = []
-        for version, dstr in VERSION_DATES.get(p["slug"], []):
-            d = _parse_date_loose(dstr)
-            if d:
-                dots.append({"version": version, "date": d})
         log = load_update_log(p["slug"])
+        for version, dstr in _extract_version_dates_from_log(log):
+            dt, has_time = _parse_version_timestamp(dstr)
+            if dt:
+                dots.append({"version": version, "dt": dt, "date": dt.date(), "has_time": has_time})
+        dots.sort(key=lambda dd: dd["dt"])
         bars.append({
             "project": p, "start": start, "end": end,
             "ongoing": ongoing, "estimated": estimated,
             "dots": dots,
             "version_count": len(_update_log_versions(log)) if log else 0,
-            "has_dated_versions": bool(dots),
         })
     bars.sort(key=lambda it: it["start"])
 
-    lane_free_at = []  # index -> date this lane is next free from
-    for it in bars:
-        placed = False
-        for i, free_at in enumerate(lane_free_at):
-            if it["start"] > free_at:
-                lane_free_at[i] = it["end"]
-                it["lane"] = i
-                placed = True
-                break
-        if not placed:
-            lane_free_at.append(it["end"])
-            it["lane"] = len(lane_free_at) - 1
+    # Every project gets its own lane, permanently -- never reused by a
+    # later project once "freed", the way an interval-graph coloring
+    # normally would. A freed-lane reuse assumes a project's bar is done
+    # growing once it ends, which isn't true here: uploading one more
+    # version to an older project extends its bar into territory a
+    # differently-owned lane may have since occupied. A dedicated lane
+    # per project can never collide with another project's bar no matter
+    # how far a future version pushes its end date.
+    for i, it in enumerate(bars):
+        it["lane"] = i
 
     point_events = []
     for c in CERTIFICATIONS:
@@ -3097,9 +3158,10 @@ def build_timeline():
 
     if not bars and not point_events:
         return {"bars": [], "point_events": [], "lane_count": 0,
-                "height_px": TIMELINE_MIN_HEIGHT, "year_marks": [], "today_top_px": 0}
+                "height_px": TIMELINE_MIN_HEIGHT, "month_marks": [], "week_marks": [], "today_top_px": None}
 
     all_dates = [it["start"] for it in bars] + [it["end"] for it in bars] \
+        + [d["date"] for it in bars for d in it["dots"]] \
         + [e["date"] for e in point_events] + [today]
     min_date, max_date = min(all_dates), max(all_dates)
     total_days = max((max_date - min_date).days, 1)
@@ -3108,36 +3170,168 @@ def build_timeline():
     px_per_day = height_px / total_days
 
     def top_of(d):
-        return (d - min_date).days * px_per_day
+        # +TIMELINE_TOP_BUFFER: point-event cards (and, for the very
+        # first item, a project's own label) render centered/anchored on
+        # their date and can extend a little above it, so the earliest
+        # possible top_px still needs headroom -- otherwise the very top
+        # entry on the page can overlap the intro text above the frame.
+        return (d - min_date).days * px_per_day + TIMELINE_TOP_BUFFER
 
+    # A short stub minimum keeps a same-month project visible as a small
+    # tick rather than an invisible dot. Its label floats beside the node
+    # at a fixed width regardless (see above), so this only ever affects
+    # how long the line trailing the node is -- never how much room the
+    # text has, which is what caused the old overflow.
     for it in bars:
         it["top_px"] = round(top_of(it["start"]), 1)
-        it["height_px"] = max(round((it["end"] - it["start"]).days * px_per_day, 1), 10)
+        it["height_px"] = max(round((it["end"] - it["start"]).days * px_per_day, 1), 22)
         for dot in it["dots"]:
             dot["top_px"] = round(top_of(dot["date"]) - it["top_px"], 1)
+            dot["date_label"] = (dot["dt"].strftime("%d %b %Y, %H:%M") if dot["has_time"]
+                                  else dot["date"].strftime("%d %b %Y"))
+        # The dot itself always sits at its true date. Its label is a
+        # separate, deliberately nudged position -- a burst of releases
+        # within a few pixels of each other (see claude-prompt-scheduler)
+        # would otherwise print a stack of unreadable overlapping text.
+        prev_label_top = None
+        for dot in it["dots"]:
+            label_top = dot["top_px"]
+            if prev_label_top is not None and label_top < prev_label_top + 15:
+                label_top = prev_label_top + 15
+            dot["label_top_px"] = round(label_top, 1)
+            prev_label_top = dot["label_top_px"]
+        # A dated version release after the line's nominal end (e.g. a
+        # same-month project whose only real data point is a later commit)
+        # should still be reachable on the line rather than hanging off
+        # the bottom of it.
+        if it["dots"]:
+            it["height_px"] = max(it["height_px"], it["dots"][-1]["top_px"] + 12)
         it["start_label"] = it["start"].strftime("%b %Y")
         it["end_label"] = ("Ongoing" if it["ongoing"]
-                            else ("~ " + it["end"].strftime("%b %Y") if it["estimated"]
+                            else (("~" + it["end"].strftime("%b %Y")) if it["estimated"]
                                   else it["end"].strftime("%b %Y")))
+
+        # Segments: [0, dot1, dot2, ..., height_px]. Opacity fades across
+        # each one independently and resets at every dot -- but the fade
+        # always completes within TIMELINE_FADE_WINDOW_DAYS of the reset,
+        # never stretched to fit a longer gap. Without that cap, a rare
+        # multi-year gap (no dots at all, or two versions months apart)
+        # rendered as one long smooth gradient still reads as a visible
+        # "trail" the whole way down, implying sustained work that didn't
+        # happen. Past the window it's a flat, near-invisible connector
+        # instead -- a short bright burst after each reset, then quiet.
+        fade_window_px = TIMELINE_FADE_WINDOW_DAYS * px_per_day
+        boundaries = [0.0] + [d["top_px"] for d in it["dots"]] + [it["height_px"]]
+        segments = []
+        for i in range(len(boundaries) - 1):
+            seg_top, seg_bottom = boundaries[i], boundaries[i + 1]
+            h = round(seg_bottom - seg_top, 1)
+            if h <= 0:
+                continue
+            # Only the very last segment can be an "estimated" guess (an
+            # unconfirmed end past the last known activity); every
+            # earlier segment sits between two real dates.
+            is_estimated = it["estimated"] and i == len(boundaries) - 2
+            fade_h = round(min(h, fade_window_px), 1)
+            dormant_h = round(h - fade_h, 1)
+            segments.append({
+                "top_px": round(seg_top, 1),
+                "fade_height_px": fade_h,
+                "dormant_height_px": dormant_h,
+                "estimated": is_estimated,
+                # A dormant stretch that's followed by another real,
+                # dated version below it (i.e. not the final segment,
+                # which is either open-ended/estimated or just where the
+                # line stops) gets a visible dotted "long break" treatment
+                # instead of fading to near-nothing -- there's confirmed
+                # proof work resumed, so it shouldn't read the same as a
+                # project that may just be over.
+                "is_break": dormant_h > 0 and not is_estimated and i < len(boundaries) - 2,
+            })
+        it["segments"] = segments
 
     for e in point_events:
         e["top_px"] = round(top_of(e["date"]), 1)
         e["date_label"] = e["date"].strftime("%b %Y")
 
-    year_marks = []
-    for year in range(min_date.year, max_date.year + 1):
-        d = date(year, 1, 1)
-        if min_date <= d <= max_date:
-            year_marks.append({"year": year, "top_px": round(top_of(d), 1)})
+    # Certifications/achievements within roughly the same week of each
+    # other -- e.g. five HackerRank certs earned in one sitting -- are
+    # grouped into one compact marker with a scrollable list, rather than
+    # each getting nudged further down the page to avoid overlapping.
+    # Nudging a dense run drifts it further from its true chronological
+    # position the more crowded it gets; clustering keeps everything at
+    # its real spot on the shared time scale and just changes how a
+    # crowded moment is *displayed*, not where it sits. Expressed in days
+    # (converted to px here) rather than a fixed pixel gap, so it means
+    # the same thing regardless of TIMELINE_PX_PER_DAY.
+    TIMELINE_EVENT_CLUSTER_GAP_DAYS = 10
+    cluster_gap_px = TIMELINE_EVENT_CLUSTER_GAP_DAYS * px_per_day
+    raw_clusters = []
+    for e in point_events:
+        if raw_clusters and e["top_px"] <= raw_clusters[-1]["anchor_px"] + cluster_gap_px:
+            raw_clusters[-1]["events"].append(e)
+            raw_clusters[-1]["anchor_px"] = e["top_px"]  # chain: compare to the nearest, not the first
+        else:
+            raw_clusters.append({"anchor_px": e["top_px"], "events": [e]})
+
+    event_groups = []
+    for c in raw_clusters:
+        if len(c["events"]) == 1:
+            ev = c["events"][0]
+            event_groups.append({"is_cluster": False, "top_px": ev["top_px"], "event": ev})
+        else:
+            event_groups.append({
+                "is_cluster": True,
+                "top_px": c["events"][0]["top_px"],  # anchor to the earliest in the cluster
+                "events": c["events"],
+            })
+
+    # A ruler running the full height: every month gets a tick, January's
+    # carries the year (bigger/bolder in the template) and every other
+    # month a short abbreviation, so scanning the left edge reads years
+    # and months the way a ruler's major/minor ticks do.
+    month_marks = []
+    cur = date(min_date.year, min_date.month, 1)
+    end_month = date(max_date.year, max_date.month, 1)
+    while cur <= end_month:
+        month_marks.append({
+            "top_px": round(max(top_of(cur), 0.0), 1),
+            "is_year": cur.month == 1,
+            "label": cur.strftime("%Y") if cur.month == 1 else cur.strftime("%b"),
+        })
+        cur = date(cur.year + 1, 1, 1) if cur.month == 12 else date(cur.year, cur.month + 1, 1)
+
+    # Week sub-dividers for the lane area only (no ruler label -- "week
+    # 37" isn't a meaningful landmark the way a month name is). Anchored
+    # to min_date so they land on whole-week boundaries from the start of
+    # the visible range, not real ISO week numbers.
+    week_marks = []
+    w = 0
+    while True:
+        d = min_date + timedelta(days=7 * w)
+        if d > max_date:
+            break
+        week_marks.append({"top_px": round(max(top_of(d), 0.0), 1)})
+        w += 1
 
     return {
         "bars": bars,
-        "point_events": point_events,
-        "lane_count": len(lane_free_at),
-        "height_px": round(height_px),
-        "year_marks": year_marks,
+        "point_events": event_groups,
+        "lane_count": len(bars),
+        "week_marks": week_marks,
+        # Blank room above the first date and below the last: labels/cards
+        # float past their anchor's own top/height (by design -- see the
+        # docstring) and are centered or offset from a point rather than
+        # clipped to it, so without this the top- or bottom-most entry on
+        # the page can visually run into the intro text or footer instead
+        # of ending cleanly clear of them. Doesn't affect px_per_day or
+        # any position -- top_of() already bakes TIMELINE_TOP_BUFFER into
+        # every date, and this just extends the container to match.
+        "height_px": round(height_px) + TIMELINE_TOP_BUFFER + TIMELINE_BOTTOM_BUFFER,
+        "month_marks": month_marks,
         "today_top_px": round(top_of(today), 1) if min_date <= today <= max_date else None,
     }
+
 
 
 @app.route("/timeline")

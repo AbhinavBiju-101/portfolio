@@ -11,6 +11,8 @@ This log covers the 23 folders in the archive (`v3` through `8.0`, plus the fina
 ---
 
 ## v3 — Earliest Preserved Build
+_Last modified: 28 Mar 2026, 06:21_
+
 **Contains** — 43 classes, and a wider scope than the project ended up with:
 - **Framework:** `AppFrame`, `CanvasPanel`, `Session`, `AnimEngine`, `AnimState`, `UndoManager`, `UndoableAction`, `Draggable`, `Connector`, `FolderPanel`.
 - **CS structures:** `DSRenderer`, `LLRend` (linked list), `StackRend`, `QueueRend`, `DequeRend`, `CQRend` (circular queue), `HeapRend`, `TreeRend` with `T`/`TNode`, `GraphRend` with `GN`/`GE`.
@@ -21,6 +23,8 @@ This log covers the 23 folders in the archive (`v3` through `8.0`, plus the fina
 ---
 
 ## v4 — The Pivot
+_Last modified: 28 Mar 2026, 21:15_
+
 The single biggest change of direction in the project. Line count drops 2,401 → 1,751 as whole modules are cut and the rest is restructured.
 
 **Added**
@@ -42,6 +46,8 @@ The single biggest change of direction in the project. Line count drops 2,401 �
 ---
 
 ## v5 — Desktop Integration
+_Last modified: 28 Mar 2026, 22:23_
+
 **Added**
 - `createShortcut()` — installs a desktop launcher.
 - `componentResized()` / `componentShown()`, `positionStrip()`, `mouseEntered()` / `mouseExited()` — responsive layout for the tool strip.
@@ -49,16 +55,22 @@ The single biggest change of direction in the project. Line count drops 2,401 �
 ---
 
 ## v5.5 — Checkpoint
+_Last modified: 29 Mar 2026, 02:30_
+
 No source change from v5.
 
 ---
 
 ## v5.8 — Minor Additions
+_Last modified: 29 Mar 2026, 09:43_
+
 +31 lines of small refinements.
 
 ---
 
 ## v6 — The `.vcanvas` Format
+_Last modified: 30 Mar 2026, 03:38_
+
 **Added**
 - `saveCanvas()` / `loadCanvas()` / `saveTo()` / `safeFile()` / `saveIntList()` / `loadIntList()` / `loadLine()` — **the custom `.vcanvas` file format**. Projects become persistent documents rather than throwaway sessions.
 - `copySelected()` / `pasteSelected()` and `KeyEventDispatcher` / `dispatchKeyEvent()` — clipboard and global keyboard shortcuts.
@@ -70,23 +82,31 @@ No source change from v5.
 ---
 
 ## v6.2 — Selection and Bonding
+_Last modified: 30 Mar 2026, 07:37_
+
 **Added**
 - `showGroupMenu()`, `pasteFromSelection()`, `setToolAuto()`, `getVertices()`, `bdNoCharge()` (bond without formal charge), `desc()`.
 
 ---
 
 ## 6.5 — Checkpoint
+_Last modified: 30 Mar 2026, 09:30_
+
 +17 lines.
 
 ---
 
 ## 6.7 — Tree and Deque Operations
+_Last modified: 30 Mar 2026, 23:33_
+
 **Added**
 - `rebuildTree()`, `addR()` / `remR()` (recursive insert and remove), `deq()` — real interactive operations on the tree and deque structures rather than static renderings. +342 lines.
 
 ---
 
 ## v6.8 — Pulleys, Reaction Chemistry
+_Last modified: 31 Mar 2026, 02:45_
+
 **Added**
 - `PulleyConn` — the first non-trivial physics constraint.
 - `showArrowMenu()` / `arrowAt()` — reaction-arrow editing.
@@ -96,18 +116,24 @@ No source change from v5.
 ---
 
 ## 6.9 — Rendering Polish
+_Last modified: 31 Mar 2026, 07:24_
+
 **Added**
 - `atomTextColor()` — per-element label colouring.
 
 ---
 
 ## 7 — Rigid-Body Physics
+_Last modified: 01 Apr 2026, 02:58_
+
 **Added**
 - `applyImpulsePhys()`, `contactVelPhys()`, `findContactPoint()`, `momentOfInertia()`, `radius()`, `resolveCircleCircle()` — impulse-based collision resolution with rotational inertia. This is where the physics module stops being decorative and becomes a real engine.
 
 ---
 
 ## 7.1 — Contact Manifolds
+_Last modified: 01 Apr 2026, 21:58_
+
 **Added**
 - `contactManifold()` — replaces single-point contact with a proper manifold, so resting objects are stable instead of jittering.
 - `pointInPoly()`, `findIdByLabel()`, `showPhysicsSettings()` — a settings panel for gravity, damping and iteration count.
@@ -118,11 +144,15 @@ No source change from v5.
 ---
 
 ## 7.2 – 7.4 — Refinement
+_Last modified: 03 Apr 2026, 00:31_
+
 Small corrections; +22, +2 and +66 lines respectively.
 
 ---
 
 ## 7.5 — Polygon Collision, Pulley Systems
+_Last modified: 03 Apr 2026, 02:46_
+
 **Added**
 - `resolveCirclePolygon()` — circles can now collide with arbitrary polygons, not just other circles.
 - `configPulleySystem()` — multi-pulley configuration.
@@ -130,6 +160,8 @@ Small corrections; +22, +2 and +66 lines respectively.
 ---
 
 ## 7.6 — Broad-Phase and Sleeping
+_Last modified: 03 Apr 2026, 04:54_
+
 **Added**
 - `SpatialGrid` with `insert()`, `collectPairs()`, `key()` — spatial hashing for broad-phase collision detection, replacing the O(n²) all-pairs check. This is the change that lets the canvas hold large object counts.
 - `sleeping()`, `trySettle()`, `wake()` — objects that come to rest stop consuming solver time until disturbed.
@@ -137,11 +169,15 @@ Small corrections; +22, +2 and +66 lines respectively.
 ---
 
 ## 7.7 – 7.9 — Stabilisation
+_Last modified: 27 Apr 2026, 02:48_
+
 No source changes to `VisualCanvas.java` across these three. At **7.9**, `NBodySimulation.java` appears — an 800-line standalone gravitational simulator with Barnes–Hut tree approximation (`BHNode`, `NodePool`), its own `SpatialGrid`, and a threaded `Simulation`/`RenderData` split for rendering large body counts.
 
 ---
 
 ## 8.0 — Cross-Platform Installation
+_Last modified: 31 Jul 2026, 03:28_
+
 **Added**
 - `isWindows()` / `isMac()` / `createShortcutLinux()` — platform detection and per-platform launcher installation.
 - `regKeyDefault()`, `regKeyNamed()`, `regDelete()`, `regEscape()`, `notifyShellAssocChanged()`, `runPowerShellEncoded()`, `runLogged()`, `esc()` — Windows registry work to **register `.vcanvas` as a file association**, so saved canvases open by double-click.
@@ -149,6 +185,8 @@ No source changes to `VisualCanvas.java` across these three. At **7.9**, `NBodyS
 ---
 
 ## Final build (`Canvas`) — Shipped
+_Last modified: 10 Aug 2026, 07:42_
+
 Identical source to 8.0. This is the packaged build, with `+libs`, the compiled classes and the `saves/` test scenes.
 
 ---

@@ -11,6 +11,8 @@ This log covers the three snapshots in the archive (`v1`, `v2`, and the final `F
 ---
 
 ## v1 — The Dependency-Free Web File Browser
+_Last modified: 31 Jul 2026, 02:55_
+
 **Added** — 35 classes, already a complete architecture:
 
 *Server core*
@@ -40,6 +42,8 @@ This log covers the three snapshots in the archive (`v1`, `v2`, and the final `F
 ---
 
 ## v2 — Settings, Autostart, Quickstart
+_Last modified: 02 Aug 2026, 01:20_
+
 **Added**
 - `Settings` + `SettingsHandler` — a real settings page: configurable root directory (`setRootDirOverride()`), dashboard item limits (`setDashboardMaxItems()`), and a live-refresh toggle.
 - `AutostartManager` — `enable()` / `disable()` / `isEnabled()` plus `findJarPath()` and `findJavaw()`, backed by `install-autostart.bat` / `uninstall-autostart.bat` / `stop.bat` / `build-jar.bat`. The dashboard now starts with Windows.
@@ -57,6 +61,8 @@ This log covers the three snapshots in the archive (`v1`, `v2`, and the final `F
 ---
 
 ## Final build — Google Drive, Multi-User, Cross-Platform
+_Last modified: 18 Aug 2026, 19:23_
+
 
 This is the largest single expansion in any of my projects: **+40 classes, +8,353 lines**, and a change of intent. Up to v2 this was a local file browser. From here it is a file manager with two interchangeable backends, where your Drive is browsed with the same UI, search, viewer and operations as your disk.
 

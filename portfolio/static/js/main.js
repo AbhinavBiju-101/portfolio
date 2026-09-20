@@ -770,6 +770,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // One entry per thumb, in DOM order — which is also the order their
   // data-index values count up in, so items[i] always matches the thumb
   // whose data-index is i. A video thumb (if present) is always first.
+  // This same ordered list backs both the main preview above the thumb
+  // strip AND the lightbox, so the video is just slide 0 in both places
+  // rather than a special case bolted onto an images-only lightbox.
   const items = thumbs.map((t) => ({
     kind: t.dataset.kind,
     src: t.dataset.full,
@@ -833,35 +836,62 @@ document.addEventListener("DOMContentLoaded", () => {
     thumb.addEventListener("click", () => setActive(Number(thumb.dataset.index)));
   });
 
-  if (!mainImg) return; // video-only project — no lightbox to wire up
-
   // --- Lightbox: bigger popup, arrow-key/arrow-button navigation ---------
-  // Image-only — steps through screenshots by their lightbox index (0-based
-  // among images alone), which is independent of the combined gallery
-  // index above whenever a video occupies slot 0.
+  // Shares the same `items` list (and the same index) as the main preview
+  // above, so the video — wherever it sits in that order — is just
+  // another slide you can arrow/swipe to and play, not a separate gallery.
   const lightbox = document.getElementById("lightbox");
   if (!lightbox) return;
 
-  const imageThumbs = thumbs.filter((t) => t.dataset.kind !== "video");
-  const images = imageThumbs.length
-    ? imageThumbs.map((t) => ({ src: t.dataset.full, alt: t.querySelector("img").alt }))
-    : [{ src: mainImg.src, alt: mainImg.alt }];
-
-  let lightboxIndex = 0;
-
   const lightboxImg = document.getElementById("lightbox-img");
+  const lightboxVideoWrap = document.getElementById("lightbox-video");
+  const lightboxVideoIdleHTML = lightboxVideoWrap ? lightboxVideoWrap.innerHTML : "";
   const lightboxCount = document.getElementById("lightbox-count");
   const closeBtn = document.getElementById("lightbox-close");
   const prevBtn = document.getElementById("lightbox-prev");
   const nextBtn = document.getElementById("lightbox-next");
 
+  let lightboxIndex = 0;
+
+  function bindLightboxVideoPlay() {
+    const playBtn = document.getElementById("lightbox-video-play");
+    if (!playBtn || !lightboxVideoWrap) return;
+    playBtn.addEventListener("click", () => {
+      const embed = lightboxVideoWrap.dataset.embed;
+      if (!embed) return;
+      const iframe = document.createElement("iframe");
+      iframe.src = embed;
+      iframe.title = lightboxVideoWrap.dataset.title || "Demo video";
+      iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+      iframe.allowFullscreen = true;
+      iframe.className = "gallery-video-iframe";
+      lightboxVideoWrap.innerHTML = "";
+      lightboxVideoWrap.appendChild(iframe);
+    });
+  }
+
   function showInLightbox(index) {
-    lightboxIndex = (index + images.length) % images.length;
-    lightboxImg.src = images[lightboxIndex].src;
-    lightboxImg.alt = images[lightboxIndex].alt;
-    if (lightboxCount) lightboxCount.textContent = `${lightboxIndex + 1} / ${images.length}`;
-    const thumb = imageThumbs[lightboxIndex];
-    if (thumb) setActive(Number(thumb.dataset.index));
+    lightboxIndex = (index + items.length) % items.length;
+    const item = items[lightboxIndex];
+
+    if (item.kind === "video") {
+      if (lightboxImg) lightboxImg.hidden = true;
+      if (lightboxVideoWrap) {
+        lightboxVideoWrap.hidden = false;
+        lightboxVideoWrap.innerHTML = lightboxVideoIdleHTML; // reset: stop any playing iframe
+        bindLightboxVideoPlay();
+      }
+    } else {
+      if (lightboxVideoWrap) lightboxVideoWrap.hidden = true;
+      if (lightboxImg) {
+        lightboxImg.hidden = false;
+        lightboxImg.src = item.src;
+        lightboxImg.alt = item.alt;
+      }
+    }
+
+    if (lightboxCount) lightboxCount.textContent = `${lightboxIndex + 1} / ${items.length}`;
+    setActive(lightboxIndex);
   }
 
   function openLightbox(index) {
@@ -873,15 +903,13 @@ document.addEventListener("DOMContentLoaded", () => {
   function closeLightbox() {
     lightbox.hidden = true;
     document.body.style.overflow = "";
+    // Stop any playing video rather than leaving it running off-screen.
+    if (lightboxVideoWrap) lightboxVideoWrap.innerHTML = lightboxVideoIdleHTML;
   }
 
-  mainBtn.addEventListener("click", () => {
-    const thumb = thumbs[activeIndex];
-    const li = thumb ? Number(thumb.dataset.lightboxIndex) : 0;
-    openLightbox(Number.isNaN(li) ? 0 : li);
-  });
-  imageThumbs.forEach((thumb) => {
-    thumb.addEventListener("dblclick", () => openLightbox(Number(thumb.dataset.lightboxIndex)));
+  if (mainBtn) mainBtn.addEventListener("click", () => openLightbox(activeIndex));
+  thumbs.forEach((thumb) => {
+    thumb.addEventListener("dblclick", () => openLightbox(Number(thumb.dataset.index)));
   });
   closeBtn.addEventListener("click", closeLightbox);
   lightbox.querySelectorAll("[data-close-lightbox]").forEach((el) => el.addEventListener("click", closeLightbox));
@@ -1236,4 +1264,41 @@ document.addEventListener("DOMContentLoaded", () => {
     { threshold: 0 }
   );
   observer.observe(realHeader);
+});
+
+// --- Timeline zoom -------------------------------------------------------
+// Every position on the timeline is a plain inline px value computed
+// server-side (see build_timeline), so "zoom" here doesn't re-fetch or
+// recompute anything -- it just scales the whole rendered frame with CSS
+// `zoom` (not `transform: scale`, which wouldn't affect the scrollable
+// area/layout size the way this needs to). .tl-scroll-frame's own
+// overflow:auto then just has more or less content to scroll through.
+document.addEventListener("DOMContentLoaded", () => {
+  const frame = document.getElementById("tl-frame");
+  const zoomOutBtn = document.getElementById("tl-zoom-out");
+  const zoomInBtn = document.getElementById("tl-zoom-in");
+  const levelLabel = document.getElementById("tl-zoom-level");
+  if (!frame || !zoomOutBtn || !zoomInBtn || !levelLabel) return;
+
+  const LEVELS = [0.4, 0.55, 0.7, 0.85, 1, 1.25, 1.5, 2];
+  let index = LEVELS.indexOf(1);
+
+  function apply() {
+    const level = LEVELS[index];
+    frame.style.zoom = String(level);
+    levelLabel.textContent = `${Math.round(level * 100)}%`;
+    zoomOutBtn.disabled = index === 0;
+    zoomInBtn.disabled = index === LEVELS.length - 1;
+  }
+
+  zoomOutBtn.addEventListener("click", () => {
+    index = Math.max(0, index - 1);
+    apply();
+  });
+  zoomInBtn.addEventListener("click", () => {
+    index = Math.min(LEVELS.length - 1, index + 1);
+    apply();
+  });
+
+  apply();
 });

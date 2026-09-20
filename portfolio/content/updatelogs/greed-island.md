@@ -11,6 +11,8 @@ This log covers the 10 folders in the archive (`v1`–`v8`, plus `v6.5` and the 
 ---
 
 ## v1 — Foundation
+_Last modified: 08 Aug 2025, 00:20_
+
 **Added**
 - The base object model: `Character`, `Item`, `Inventory`, `Location`, `Listener`, `Dialogue`, `Decision`, `RarityPool`, `itemType`, `Greed_Island` (the driver).
 - `RarityPool` — the weighted-random drop system carried over directly from **Mining Simulator**, which is where the whole idea of probability-weighted selection in this project comes from.
@@ -19,6 +21,8 @@ This log covers the 10 folders in the archive (`v1`–`v8`, plus `v6.5` and the 
 ---
 
 ## v2 — Crafting, Items, Threading
+_Last modified: 14 Aug 2025, 00:52_
+
 **Added**
 - A real item hierarchy: `Resource`, `Craftable`, `Edible`, `Weapon`, plus concrete items — `Apple`, `Berries`, `Poisonous_Berries`, `Wood`, `Logs`, `Sticks`, `Stone`, `Vines`, `Axe`, `Bow`, `Arrows`, `Poison_Arrows`.
 - `canCraft()` / `getCraftable()` / `craft()` — a recipe tree, so items combine into better items.
@@ -36,6 +40,8 @@ This log covers the 10 folders in the archive (`v1`–`v8`, plus `v6.5` and the 
 ---
 
 ## v3 — Duplicate Upload
+_Last modified: 14 Aug 2025, 02:49_
+
 **Note**
 - Every file appears twice, as `Name.java` and `Name (1).java`. This is a Google Drive duplication artifact from re-uploading the folder, not a real version.
 
@@ -45,6 +51,8 @@ This log covers the 10 folders in the archive (`v1`–`v8`, plus `v6.5` and the 
 ---
 
 ## v4 — Pruning, HTML Output, Networking Experiment
+_Last modified: 15 Aug 2025, 04:25_
+
 **Added**
 - `HtmlWriter` + `output.html` — dumps simulation state to a browsable HTML report instead of only console text.
 - `network.java` — an early, abandoned attempt at running the simulation across machines.
@@ -56,6 +64,8 @@ This log covers the 10 folders in the archive (`v1`–`v8`, plus `v6.5` and the 
 ---
 
 ## v5 — Event Scheduler, Dialogue System
+_Last modified: 16 Aug 2025, 04:20_
+
 **Added**
 - `StateListener` and `TickListener` — the simulation clock gains typed listeners that fire on state change and on every tick, replacing ad-hoc polling.
 - `enqueueAndWait()` — ordered, blocking task handoff between agent threads, which is what stops 20 concurrent agents from corrupting shared state.
@@ -69,6 +79,8 @@ This log covers the 10 folders in the archive (`v1`–`v8`, plus `v6.5` and the 
 ---
 
 ## v6 — Peak Scratchpad, Map Rendering
+_Last modified: 19 Aug 2025, 03:14_
+
 **Added**
 - `MapWithCharacters` and `paintComponent()` — a graphical view of agent positions on the map.
 - `Raise`, `comparator`, `makeComparable` — sorting and comparison utilities for ranking agents.
@@ -79,6 +91,8 @@ This log covers the 10 folders in the archive (`v1`–`v8`, plus `v6.5` and the 
 ---
 
 ## `v6_simulated_branchA` — Cooking Branch
+_Last modified: 19 Mar 2026, 08:58_
+
 A side-branch off v6, not a sequential version.
 
 **Added**
@@ -93,12 +107,16 @@ A side-branch off v6, not a sequential version.
 ---
 
 ## v6.5 — Checkpoint
+_Last modified: 20 Mar 2026, 09:54_
+
 **Changed**
 - Minor `Location` and `Apple` corrections. A `__SHELL1.java` BlueJ scratch file appears.
 
 ---
 
 ## v7 — Travel Costs, Final Prune
+_Last modified: 31 Jul 2026, 08:57_
+
 **Added**
 - `TravelCosts` with a nested `Route` type, plus `addRoute()`, `findRoute()`, `getTravelCost()`, `addDestination()` — the map becomes a weighted graph. Moving between locations now costs energy proportional to distance, so travel is a real decision with a tradeoff rather than a free action.
 - `Container` — generalised storage.
@@ -115,6 +133,8 @@ A side-branch off v6, not a sequential version.
 ---
 
 ## v8 — Trait Inheritance Tuning (Latest)
+_Last modified: 01 Aug 2026, 04:12_
+
 **Added**
 - `setDecisionProbabilities()` — the final form of the genetics model. Each agent carries a `Traits` map (`Sleep`, `Travel`, `Eat`, `Give`, `Craft`, `Attack`, `DecisionFrequency`); offspring inherit the parent's values with a per-trait mutation delta applied, and the decision probability model is rebuilt from the mutated traits rather than reset to defaults.
 

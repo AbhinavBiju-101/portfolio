@@ -9,6 +9,8 @@ This project has no GitHub repository; versioning was done entirely through addo
 ---
 
 ## 1.0 — First Signed Build
+_Last modified: 08 Sep 2026_
+
 **8 Sep 2026, 12:46 · 101 KB**
 
 **Added**
@@ -22,6 +24,8 @@ This project has no GitHub repository; versioning was done entirely through addo
 ---
 
 ## 1.2 – 1.2.2 — Listing Iterations
+_Last modified: 08 Sep 2026_
+
 **8 Sep 2026, 18:06 – 18:16 · +3 lines total**
 
 Three builds in ten minutes, all essentially identical. The AMO listing goes live at 18:08 between 1.2 and 1.2.1; these are metadata and signing corrections, not code changes.
@@ -29,6 +33,8 @@ Three builds in ten minutes, all essentially identical. The AMO listing goes liv
 ---
 
 ## 1.2.3 — Packaging Cleanup
+_Last modified: 08 Sep 2026_
+
 **8 Sep 2026, 19:02 · 111 KB**
 
 Switches from signed `.xpi` output to `web-ext` source zips. Size drops 10 KB as build artifacts stop being bundled into themselves.
@@ -36,6 +42,8 @@ Switches from signed `.xpi` output to `web-ext` source zips. Size drops 10 KB as
 ---
 
 ## 1.2.4 — Custom Date/Time Picker
+_Last modified: 09 Sep 2026_
+
 **9 Sep 2026, 02:12 · +367 lines**
 
 **Added**
@@ -44,6 +52,8 @@ Switches from signed `.xpi` output to `web-ext` source zips. Size drops 10 KB as
 ---
 
 ## 1.4.1 — Prompt Library and a Backend
+_Last modified: 10 Sep 2026_
+
 **10 Sep 2026, 04:21 · +1,423 lines**
 
 The first change of intent. Up to now everything lived in browser storage on one machine.
@@ -56,6 +66,8 @@ The first change of intent. Up to now everything lived in browser storage on one
 ---
 
 ## 1.5.0 — Accounts and Multi-Step Sequences
+_Last modified: 11 Sep 2026_
+
 **11 Sep 2026, 02:47 · +1,269 lines**
 
 **Added**
@@ -67,6 +79,8 @@ The first change of intent. Up to now everything lived in browser storage on one
 ---
 
 ## 1.6.0 — Placeholders
+_Last modified: 12 Sep 2026_
+
 **12 Sep 2026, 04:13 · +810 lines**
 
 **Added**
@@ -76,6 +90,8 @@ The first change of intent. Up to now everything lived in browser storage on one
 ---
 
 ## 1.6.1 – 1.6.3 — Fixes
+_Last modified: 12 Sep 2026_
+
 **12 Sep 2026, 05:15 – 10:58 · +19 lines total**
 
 Small corrections; a `supabase-client.js` fix in 1.6.3.
@@ -83,6 +99,8 @@ Small corrections; a `supabase-client.js` fix in 1.6.3.
 ---
 
 ## 1.7.0 — Privacy Policy
+_Last modified: 12 Sep 2026_
+
 **12 Sep 2026, 14:03 · +99 lines**
 
 **Added**
@@ -91,6 +109,8 @@ Small corrections; a `supabase-client.js` fix in 1.6.3.
 ---
 
 ## 1.7.1 — First Migration
+_Last modified: 12 Sep 2026_
+
 **12 Sep 2026, 14:09**
 
 **Added**
@@ -99,6 +119,8 @@ Small corrections; a `supabase-client.js` fix in 1.6.3.
 ---
 
 ## 1.7.2 — Workspaces
+_Last modified: 13 Sep 2026_
+
 **13 Sep 2026, 08:35 · +143 lines**
 
 **Added**
@@ -109,6 +131,8 @@ Small corrections; a `supabase-client.js` fix in 1.6.3.
 ---
 
 ## 1.7.4 — Profile Linking Fixes
+_Last modified: 13 Sep 2026_
+
 **13 Sep 2026, 08:47 · +96 lines**
 
 **Added**
@@ -120,6 +144,8 @@ Small corrections; a `supabase-client.js` fix in 1.6.3.
 ---
 
 ## 1.7.5 — Compose Page
+_Last modified: 13 Sep 2026_
+
 **13 Sep 2026, 19:03 · +301 lines**
 
 **Added**
@@ -128,6 +154,8 @@ Small corrections; a `supabase-client.js` fix in 1.6.3.
 ---
 
 ## 1.7.6 — Picker Fix
+_Last modified: 13 Sep 2026_
+
 **13 Sep 2026, 19:09 · −29 lines**
 
 **Changed**
@@ -136,6 +164,8 @@ Small corrections; a `supabase-client.js` fix in 1.6.3.
 ---
 
 ## 2.1.0 — Targets, Profiles, Reset Times
+_Last modified: 14 Sep 2026_
+
 **14 Sep 2026, 07:06 · +835 lines**
 
 A major version bump. (2.0.x was never published.)
@@ -154,6 +184,8 @@ A major version bump. (2.0.x was never published.)
 ---
 
 ## 2.1.1 — Current Release
+_Last modified: 14 Sep 2026_
+
 **14 Sep 2026, 17:16 · 207 KB · +265 lines**
 
 **Changed**
